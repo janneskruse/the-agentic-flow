@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "codex_delegator": {
+      "type": "stdio",
+      "command": "{{CODEX_DELEGATOR_PATH}}",
+      "args": ["-m", "mcp_codex_delegator.server"],
+      "env": {
+        "AGENT_TEMPLATES_PATH": "{{AGENT_TEMPLATES_PATH}}"
+      }
+    }
+  }
+}
