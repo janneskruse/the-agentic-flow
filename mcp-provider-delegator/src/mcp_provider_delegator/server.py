@@ -95,10 +95,11 @@ async def call_tool(name: str, arguments: Any) -> list[TextContent]:
                 text=result.response
             )]
         else:
-            logger.error(f"Agent {agent_name} failed: {result.error}")
+            # Return fallback hint response (includes Task() suggestion)
+            logger.warning(f"Agent {agent_name} failed, returning fallback hint")
             return [TextContent(
                 type="text",
-                text=f"ERROR: {result.error}"
+                text=result.response  # Contains PROVIDER_FALLBACK_REQUIRED with Task() hint
             )]
 
     except FileNotFoundError as e:

@@ -16,12 +16,33 @@ class RateLimitError(Exception):
 
 
 @dataclass
+class FallbackHint:
+    """Hint for falling back to Claude Task tool."""
+    subagent_type: str
+    model: str
+    prompt: str
+
+    def to_string(self) -> str:
+        """Generate Task() call suggestion."""
+        # Escape the prompt for display
+        escaped_prompt = self.prompt.replace('"', '\\"')[:500]
+        if len(self.prompt) > 500:
+            escaped_prompt += "..."
+        return f'''Task(
+    subagent_type="{self.subagent_type}",
+    model="{self.model}",
+    prompt="{escaped_prompt}"
+)'''
+
+
+@dataclass
 class InvokeResult:
     """Result of a provider invocation."""
     success: bool
     response: str
     provider: str
     error: Optional[str] = None
+    fallback_hint: Optional[FallbackHint] = None
 
 
 class ProviderClient(ABC):
@@ -151,19 +172,57 @@ class GeminiClient(ProviderClient):
             raise RuntimeError("Gemini CLI not found. Install with: pip install gemini-cli")
 
 
+# Map agent names to Claude Task subagent_types for fallback
+# These match the subagent_type values available in Claude Code's Task tool
+AGENT_TO_SUBAGENT = {
+    "scout": "scout",
+    "detective": "scout",  # detective uses scout for investigation
+    "architect": "Plan",
+    "scribe": "scout",  # scribe reads codebase to document
+    "code-reviewer": "superpowers:code-reviewer",
+}
+
+# Map agent model preferences to Claude Task models
+AGENT_MODEL_TO_TASK_MODEL = {
+    "haiku": "haiku",
+    "sonnet": "sonnet",
+    "opus": "opus",
+}
+
+
 class ProviderChain:
     """Chain of providers with fallback support."""
 
-    def __init__(self, providers: list[ProviderClient], allow_skip: bool = False):
+    def __init__(
+        self,
+        providers: list[ProviderClient],
+        allow_skip: bool = False,
+        agent_name: str = "",
+        agent_model: str = "sonnet",
+    ):
         """
         Initialize provider chain.
 
         Args:
             providers: List of providers to try in order
             allow_skip: If True, return skip message when all providers fail
+            agent_name: Name of the agent (for fallback hints)
+            agent_model: Agent's preferred model (for fallback hints)
         """
         self.providers = providers
         self.allow_skip = allow_skip
+        self.agent_name = agent_name
+        self.agent_model = agent_model
+
+    def _create_fallback_hint(self, user_prompt: str) -> FallbackHint:
+        """Create a fallback hint for Claude Task tool."""
+        subagent_type = AGENT_TO_SUBAGENT.get(self.agent_name, "general-purpose")
+        task_model = AGENT_MODEL_TO_TASK_MODEL.get(self.agent_model, "sonnet")
+        return FallbackHint(
+            subagent_type=subagent_type,
+            model=task_model,
+            prompt=user_prompt,
+        )
 
     async def invoke(
         self,
@@ -210,11 +269,25 @@ class ProviderChain:
                 error="; ".join(errors),
             )
 
+        # Create fallback hint for non-skippable agents
+        fallback_hint = self._create_fallback_hint(user_prompt)
+        fallback_response = f"""PROVIDER_FALLBACK_REQUIRED
+
+All external providers (Codex, Gemini) failed for agent '{self.agent_name}'.
+Errors: {'; '.join(errors)}
+
+To complete this task, use Claude Task tool instead:
+
+{fallback_hint.to_string()}
+
+Note: The Task tool runs locally and doesn't have the same rate limits."""
+
         return InvokeResult(
             success=False,
-            response="",
+            response=fallback_response,
             provider="none",
             error=f"All providers failed: {'; '.join(errors)}",
+            fallback_hint=fallback_hint,
         )
 
 
@@ -224,7 +297,7 @@ def create_provider_chain(agent_model: str, agent_name: str) -> ProviderChain:
 
     Args:
         agent_model: Agent's preferred model (haiku, sonnet, opus)
-        agent_name: Name of the agent (for skip logic)
+        agent_name: Name of the agent (for skip logic and fallback hints)
 
     Returns:
         ProviderChain configured for the agent
@@ -239,4 +312,9 @@ def create_provider_chain(agent_model: str, agent_name: str) -> ProviderChain:
     # Code reviewer can be skipped if all providers fail
     allow_skip = agent_name == "code-reviewer"
 
-    return ProviderChain(providers=providers, allow_skip=allow_skip)
+    return ProviderChain(
+        providers=providers,
+        allow_skip=allow_skip,
+        agent_name=agent_name,
+        agent_model=agent_model,
+    )
