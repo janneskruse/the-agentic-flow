@@ -449,9 +449,9 @@ def setup_gitignore(project_dir: Path) -> None:
     print("\n[6/7] Setting up .gitignore...")
 
     gitignore_path = project_dir / ".gitignore"
-    # Only ignore .beads/ (ephemeral task data)
+    # Only ignore .beads/ (ephemeral task data) and .mcp.json (user-specific paths)
     # .claude/ is tracked so it survives git operations
-    entries_to_add = [".beads/"]
+    entries_to_add = [".beads/", ".mcp.json"]
 
     if gitignore_path.exists():
         content = gitignore_path.read_text()
@@ -476,14 +476,17 @@ def setup_gitignore(project_dir: Path) -> None:
                     f.write(f"{entry}\n")
                     print(f"  - Added {entry} to .gitignore")
         else:
-            print("  - .beads/ already in .gitignore")
+            print("  - .beads/ and .mcp.json already in .gitignore")
     else:
         # Create new .gitignore
         content = """# Beads task tracking (ephemeral)
 .beads/
+
+# MCP config (user-specific paths)
+.mcp.json
 """
         gitignore_path.write_text(content)
-        print("  - Created .gitignore with .beads/")
+        print("  - Created .gitignore with .beads/ and .mcp.json")
 
     print("  DONE: .gitignore configured")
     print("  NOTE: .claude/ is tracked (not ignored) to prevent accidental loss")
