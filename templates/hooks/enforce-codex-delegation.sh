@@ -11,6 +11,13 @@ TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
 SUBAGENT_TYPE=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty')
 [[ -z "$SUBAGENT_TYPE" ]] && exit 0
 
+# Check for rate limit bypass (provider_delegator failed, falling back to local)
+PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty')
+if [[ "$PROMPT" == *"PROVIDER_FALLBACK"* ]]; then
+  # Allow local Task when provider_delegator returned fallback hint
+  exit 0
+fi
+
 # Read-only agents MUST use Codex (no Write/Edit tools)
 READ_ONLY_AGENTS="scout|detective|architect|scribe"
 

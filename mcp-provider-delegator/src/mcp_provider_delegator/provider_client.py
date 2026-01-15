@@ -25,13 +25,14 @@ class FallbackHint:
     def to_string(self) -> str:
         """Generate Task() call suggestion."""
         # Escape the prompt for display
+        # Include PROVIDER_FALLBACK marker so hooks allow bypass
         escaped_prompt = self.prompt.replace('"', '\\"')[:500]
         if len(self.prompt) > 500:
             escaped_prompt += "..."
         return f'''Task(
     subagent_type="{self.subagent_type}",
     model="{self.model}",
-    prompt="{escaped_prompt}"
+    prompt="PROVIDER_FALLBACK: {escaped_prompt}"
 )'''
 
 
