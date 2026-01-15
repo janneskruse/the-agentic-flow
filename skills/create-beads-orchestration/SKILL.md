@@ -17,13 +17,14 @@ You MUST follow ALL 4 steps below in exact order. Missing ANY step is a CATASTRO
 
 | Step | Action | Checkpoint |
 |------|--------|------------|
-| 1 | Get project info from user | Have project name and directory |
+| 1 | Get project info from user | Have project name, directory, AND provider choice |
 | 2 | Clone repo and run bootstrap | Bootstrap completes successfully |
 | 3 | **STOP** - Instruct user to restart Claude Code | User confirms they will restart |
 | 4 | After restart: Run discovery agent | Supervisors created in .claude/agents/ |
 
 **DO NOT:**
 - Skip asking for project info
+- **Skip asking about provider delegation (Claude-only vs External providers)**
 - Continue after bootstrap without telling user to restart
 - Forget to run discovery after restart
 - Consider setup complete until discovery has run
@@ -35,12 +36,24 @@ You MUST follow ALL 4 steps below in exact order. Missing ANY step is a CATASTRO
 
 ## Step 1: Get Project Info
 
-Ask the user for:
-- **Project directory**: Where to install (default: current working directory)
-- **Project name**: For agent templates (will auto-infer from package.json/pyproject.toml if not provided)
-- **Provider delegation**: Use external providers (Codex/Gemini) for read-only agents?
+<critical-step1>
+**YOU MUST ASK ALL THREE QUESTIONS BEFORE PROCEEDING TO STEP 2.**
 
-Use AskUserQuestion for the provider delegation choice:
+1. **Project directory**: Where to install (default: current working directory)
+2. **Project name**: For agent templates (will auto-infer from package.json/pyproject.toml if not provided)
+3. **Provider delegation**: MANDATORY - You MUST use AskUserQuestion for this choice
+</critical-step1>
+
+### 1.1 Get Project Directory and Name
+
+Ask the user or auto-detect from package.json/pyproject.toml.
+
+### 1.2 MANDATORY: Ask Provider Delegation Choice
+
+<mandatory-question>
+**YOU MUST CALL AskUserQuestion WITH THIS EXACT QUESTION BEFORE RUNNING BOOTSTRAP.**
+
+Do NOT skip this. Do NOT assume a default. Do NOT proceed without the user's explicit choice.
 
 ```
 AskUserQuestion(
@@ -56,9 +69,12 @@ AskUserQuestion(
 )
 ```
 
-Based on user choice, set `--claude-only` flag for bootstrap (if "Claude only" selected).
+**After user answers:**
+- If "Claude only" → use `--claude-only` flag in bootstrap
+- If "External providers" → do NOT use `--claude-only` flag
+</mandatory-question>
 
-Wait for user response before proceeding.
+**DO NOT proceed to Step 2 until you have the provider choice from the user.**
 
 ---
 
