@@ -21,73 +21,48 @@ tools:
 
 ---
 
-## Phase 0: Start Checklist (MANDATORY)
-
-**YOU MAY NOT START WORKING UNTIL EVERY BOX IS CHECKED.**
+## Phase 0: Start
 
 ```
-- [ ] Branch: `git checkout -b bd-{BEAD_ID}` (or checkout existing)
-- [ ] Verify branch: `git branch --show-current` shows bd-{BEAD_ID}
-- [ ] Bead readable: `bd show {BEAD_ID}` returns task details
-- [ ] Mark in progress: `bd update {BEAD_ID} --status in_progress`
-- [ ] If epic child (BEAD_ID has dot, e.g., BD-001.2):
-      Read design doc: `bd show {EPIC_ID} --json | jq -r '.[0].design'` → cat that file
-- [ ] Invoke discipline: `Skill(skill: "subagents-discipline")`
+1. Branch: `git checkout -b bd-{BEAD_ID}` (or checkout existing)
+2. Mark in progress: `bd update {BEAD_ID} --status in_progress`
+3. If epic child: Read design doc via `bd show {EPIC_ID} --json | jq -r '.[0].design'`
+4. Invoke: `Skill(skill: "subagents-discipline")`
 ```
-
-**STOP. Tick each box above before proceeding. If any step fails, report to orchestrator.**
 
 ---
 
-## Phase 0.5: Understand Before Implementing
+## Phase 0.5: Execute with Confidence
 
-Before writing any code:
+The orchestrator has investigated and provided a fix strategy.
 
-1. **Read relevant code** - understand current state
-2. **State your understanding:**
-   - Bug fix: "Root cause is X because Y" (with file:line evidence)
-   - Feature: "This integrates with X, following pattern Y"
-3. **If uncertain** - investigate more before proceeding
+**Default behavior:** Execute the fix confidently.
 
-**Do NOT proceed to implementation if you're guessing.**
+**Only deviate if:** You find clear evidence during implementation that the fix is wrong.
 
-### Skepticism Rule
-
-If the orchestrator included fix suggestions, "likely causes", or prescribed solutions:
-- Treat them as **HYPOTHESES**, not facts
-- The orchestrator cannot Grep - their analysis may be incomplete
-- Verify independently before implementing
-- If orchestrator's suggestion conflicts with what you find, trust YOUR investigation
-
-Even with "DETECTIVE FINDINGS" - verify before implementing. Leads, not prescriptions.
+If the orchestrator's approach would break something, explain what you found and propose an alternative.
 
 ---
 
 ## Beads Workflow
 
 <beads-workflow>
-<requirement>You MUST complete Phase 0 checklist before ANY implementation work.</requirement>
-
 <during-implementation>
-1. Follow subagents-discipline phases (0-4)
-2. Document verification in .verification_logs/{BEAD_ID}.md
-3. Commit frequently with descriptive messages
-4. Log progress: `bd comment {BEAD_ID} "Completed X, working on Y"`
+1. Commit frequently with descriptive messages
+2. Log progress: `bd comment {BEAD_ID} "Completed X, working on Y"`
 </during-implementation>
 
 <on-completion>
-1. Run fresh verification, capture evidence
-2. Final commit
-3. Add verification comment: `bd comment {BEAD_ID} "VERIFICATION: [evidence]"`
-4. Mark ready: `bd update {BEAD_ID} --status inreview`
-5. Return completion summary to orchestrator
+1. Final commit
+2. Add comment: `bd comment {BEAD_ID} "Completed: [summary]"`
+3. Mark ready: `bd update {BEAD_ID} --status inreview`
+4. Return completion summary to orchestrator
 </on-completion>
 
 <banned>
 - Working directly on main branch
 - Implementing without BEAD_ID
 - Merging your own branch
-- Skipping discipline skill invocation
 </banned>
 </beads-workflow>
 

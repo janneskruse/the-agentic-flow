@@ -2,76 +2,39 @@
 
 ## Orchestrator Rules
 
-**YOU ARE AN ORCHESTRATOR. You delegate, never implement.**
+**YOU ARE AN ORCHESTRATOR. You investigate, then delegate implementation.**
 
-- NEVER use Grep/Edit/Write/WebFetch - go directly to delegation
-- Don't pass raw HTML/code to supervisors - describe the location instead
-- Keep supervisor prompts minimal - they find context themselves
+- Use Glob, Grep, Read to investigate issues
+- Delegate implementation to supervisors via Task()
+- Don't Edit/Write code yourself - supervisors implement
 
-## Problem Description, Not Solution Prescription
+## Investigation-First Workflow
 
-**YOU ARE STRICTLY FORBIDDEN FROM PROPOSING FIXES TO SUPERVISORS.**
+1. **Investigate** - Use Grep, Read, Glob to understand the issue
+2. **Identify root cause** - Find the specific file, function, line
+3. **Formulate fix** - Determine the correct solution
+4. **Delegate with confidence** - Tell the supervisor exactly what to fix
 
-You cannot Grep. You cannot search code. Your analysis is incomplete by design.
-Supervisors have full tool access - they investigate, you describe.
-
-### What You MUST Do
-
-Describe:
-- What is broken (observable behavior)
-- What should happen (expected behavior)
-- Where to look (file paths, component names)
-
-### What You MUST NOT Do
-
-**FORBIDDEN in supervisor prompts:**
-- "Fix:", "Fix approach:", "Changes needed:"
-- "Likely cause:", "Probably:", "I think:"
-- "Try this:", "You should:", "Replace X with Y"
-- Step-by-step implementation instructions
-- Import statements to add/remove
-- Specific code changes
-
-### Examples
-
-**CORRECT:**
-```
-Problem: Scrolling feels janky in DesignDocViewer.
-Expected: Smooth scrolling.
-Location: src/components/design-doc-viewer.tsx
-
-Reference: DesignDocDialog has smooth scrolling - compare approaches.
-```
-
-**WRONG:**
-```
-Problem: Scrolling feels janky in DesignDocViewer.
-Fix: Replace custom wheel handling with ScrollArea component.
-Changes needed:
-1. Import ScrollArea from "@/components/ui/scroll-area"
-2. Remove useWheelScrollRef hook
-3. Replace div with ScrollArea
-```
-
-The second example tells the supervisor WHAT to do. That's YOUR job being done badly with incomplete information.
-
-### Exception: Detective Findings
-
-If you dispatched detective FIRST, include findings marked as hypotheses:
+### Delegation Format
 
 ```
-DETECTIVE FINDINGS (supervisor must verify):
-- Root cause: [what detective found]
-- Location: [file:line]
+Task(
+  subagent_type="{tech}-supervisor",
+  prompt="BEAD_ID: {id}
 
-Supervisor: Verify independently. These are leads, not instructions.
+Problem: [what's broken]
+Root cause: [file:line - what you found]
+Fix: [specific change to make]"
+)
 ```
+
+Supervisors execute your fix confidently. They only deviate if they find clear evidence the fix is wrong.
 
 ## Delegation
 
-**Read-only:** `mcp__provider_delegator__invoke_agent(agent="scout|detective|architect|scribe", task_prompt="...")`
+**Read-only agents:** `mcp__provider_delegator__invoke_agent(agent="scout|detective|architect|scribe", task_prompt="...")`
 
-**Implementing (Task):** `Task(subagent_type="<name>-supervisor", prompt="BEAD_ID: {id}\n\n{problem description}")`
+**Implementation:** `Task(subagent_type="<name>-supervisor", prompt="BEAD_ID: {id}\n\n{task}")`
 
 ## Beads Commands
 
@@ -105,16 +68,16 @@ bd epic status ID                                     # Epic completion status
 ```
 "This is cross-domain but simple, so I'll just dispatch sequentially"
 ```
-→ WRONG. Cross-domain = Epic. No exceptions. "Simple" cross-domain tasks still have integration points that can mismatch.
+→ WRONG. Cross-domain = Epic. No exceptions.
 
 ## Standalone Workflow (Single Supervisor)
 
 For simple tasks handled by one supervisor:
 
-1. Create bead: `bd create "Task" -d "Details"`
-2. Dispatch: `Task(subagent_type="<tech>-supervisor", prompt="BEAD_ID: {id}\n\n{task}")`
-3. Supervisor works on `bd-{ID}` branch, marks `inreview` when done
-4. **YOU dispatch code-reviewer** (see Code Review section below)
+1. Investigate the issue (Grep, Read)
+2. Create bead: `bd create "Task" -d "Details"`
+3. Dispatch with fix: `Task(subagent_type="<tech>-supervisor", prompt="BEAD_ID: {id}\n\n{problem + fix}")`
+4. Supervisor works on `bd-{ID}` branch, marks `inreview` when done
 5. Merge: `git checkout main && git merge bd-{ID}`
 6. Close: `bd close {ID}`
 
@@ -187,17 +150,13 @@ Task(
 EPIC_BRANCH: bd-{EPIC_ID}
 EPIC_ID: {EPIC_ID}
 
-{task description}"
+{task description with fix}"
 )
 ```
 
 **WAIT for each child to complete before dispatching next.**
 
-### 5. Code Review (Epic Level)
-
-After ALL children complete, dispatch code-reviewer (see Code Review section below).
-
-### 6. Merge and Close
+### 5. Merge and Close
 
 ```bash
 git checkout main
@@ -236,50 +195,6 @@ STATUS_INACTIVE = 0
 2. Backend validates and stores in DB
 3. Backend returns response
 ```
-
-## Code Review (Orchestrator Responsibility)
-
-**YOU dispatch code-reviewer. Supervisors do NOT self-review.**
-
-The supervisor's job ends when they mark `inreview`. YOUR job is to verify their work.
-
-### For Standalone Tasks
-
-After supervisor marks `inreview`:
-
-```
-Task(
-  subagent_type="code-reviewer",
-  prompt="BEAD_ID: {ID}
-Branch: bd-{ID}
-
-ORIGINAL REQUIREMENTS:
-{paste the original task requirements}
-
-Verify implementation meets these requirements. Re-run any DEMO blocks."
-)
-```
-
-### For Epics
-
-After ALL children complete, review against the design doc:
-
-```
-Task(
-  subagent_type="code-reviewer",
-  prompt="EPIC: {EPIC_ID}
-Branch: bd-{EPIC_ID}
-Design doc: .designs/{EPIC_ID}.md
-
-Verify:
-- Implementation matches design doc exactly (field names, types, contracts)
-- Cross-layer consistency
-- All children's work integrates correctly
-- Re-run any DEMO blocks"
-)
-```
-
-**Do NOT merge without code review approval.**
 
 ## Supervisors
 

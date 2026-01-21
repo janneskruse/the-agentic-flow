@@ -21,39 +21,25 @@ tools:
 
 ---
 
-## Phase 0: Start Checklist (MANDATORY)
-
-**YOU MAY NOT START RESOLVING UNTIL EVERY BOX IS CHECKED.**
+## Phase 0: Start
 
 ```
-- [ ] Bead readable: `bd show {BEAD_ID}` returns task details (if BEAD_ID provided)
-- [ ] Mark in progress: `bd update {BEAD_ID} --status in_progress` (if BEAD_ID provided)
-- [ ] Understand context: `git status` shows merge in progress
-- [ ] Both branches readable: can access HEAD and MERGE_HEAD
+1. If BEAD_ID provided: `bd update {BEAD_ID} --status in_progress`
+2. Verify: `git status` shows merge in progress
+3. Both branches readable: can access HEAD and MERGE_HEAD
 ```
-
-**STOP. Tick each box above before proceeding. If any step fails, report to orchestrator.**
 
 ---
 
-## Phase 0.5: Understand Before Resolving
+## Phase 0.5: Execute with Confidence
 
-Before resolving any conflict:
+The orchestrator has investigated and provided resolution guidance.
 
-1. **Read both sides** - understand what each branch was trying to accomplish
-2. **State your understanding** for each conflict:
-   - "HEAD is doing X, MERGE_HEAD is doing Y, they conflict because Z"
-3. **If uncertain** about intent - investigate commit history before resolving
+**Default behavior:** Execute the resolution confidently.
 
-**Do NOT resolve conflicts if you're guessing at intent.**
+**Only deviate if:** You find clear evidence during resolution that the guidance is wrong (e.g., would break functionality).
 
-### Skepticism Rule
-
-If the orchestrator suggested how to resolve specific conflicts:
-- Treat suggestions as **HYPOTHESES**, not instructions
-- The orchestrator may not have read both branches fully
-- Verify by examining the actual code yourself
-- If orchestrator's suggestion would break functionality, trust YOUR analysis
+If the orchestrator's approach would break something, explain what you found and propose an alternative.
 
 ---
 

@@ -230,7 +230,7 @@ Summary: [1 sentence max]
 ```
 ```
 
-**CRITICAL:** You MUST read the actual `.claude/beads-workflow-injection.md` file and insert its contents. Do NOT use any hardcoded workflow - the file contains the current workflow including code review requirements.
+**CRITICAL:** You MUST read the actual `.claude/beads-workflow-injection.md` file and insert its contents. Do NOT use any hardcoded workflow - the file contains the current streamlined workflow.
 
 **FOR FRONTEND SUPERVISORS:** Also read `.claude/ui-constraints.md` AND `.claude/frontend-reviews-requirement.md` and insert both after the beads workflow. Frontend supervisors include: react-supervisor, vue-supervisor, svelte-supervisor, angular-supervisor, nextjs-supervisor.
 

@@ -7,12 +7,6 @@
         ]
       },
       {
-        "matcher": "Read",
-        "hooks": [
-          {"type": "command", "command": ".claude/hooks/warn-orchestrator-code-read.sh"}
-        ]
-      },
-      {
         "matcher": "Task",
         "hooks": [
           {"type": "command", "command": ".claude/hooks/enforce-codex-delegation.sh"},
@@ -31,6 +25,12 @@
         "matcher": "Write",
         "hooks": [
           {"type": "command", "command": ".claude/hooks/enforce-branch-before-edit.sh"}
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {"type": "command", "command": ".claude/hooks/validate-epic-close.sh"}
         ]
       }
     ],

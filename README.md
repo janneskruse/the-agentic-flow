@@ -1,640 +1,105 @@
 # Beads Orchestration
 
-A lightweight multi-agent orchestration framework for Claude Code that enables parallel development workflows with mandatory code review gates.
+Multi-agent orchestration for Claude Code. An orchestrator investigates issues and delegates implementation to specialized supervisors.
 
-## Two Modes of Operation
-
-Beads Orchestration supports two modes for running read-only agents (scout, detective, architect, scribe, code-reviewer):
-
-| Mode | Flag | Read-only Agents | Requirements |
-|------|------|------------------|--------------|
-| **Claude-only** | `--claude-only` | Run via Claude Task() | beads CLI only |
-| **External Providers** | (default) | Run via Codex/Gemini | Codex CLI, Gemini CLI, uv |
-
-**Claude-only mode** is simpler to set up and has no external dependencies. **External providers mode** offloads read-only work to Codex/Gemini, reducing Claude token usage.
-
-## Requirements
-
-### Claude-only Mode (Recommended for simplicity)
-
-- **Claude Code** with hooks support
-- **beads CLI** - Installed automatically by the skill, or manually:
-  - macOS: `brew install steveyegge/beads/bd`
-  - npm: `npm install -g @beads/bd`
-  - Go: `go install github.com/steveyegge/beads/cmd/bd@latest`
-- **For frontend projects** (optional, installed by bootstrap):
-  - **RAMS** - Accessibility review skill (Claude Code built-in)
-  - **Web Interface Guidelines** - `curl -fsSL https://vercel.com/design/guidelines/install | bash`
-
-### External Providers Mode (For reduced Claude usage)
-
-All of the above, plus:
-- **Codex CLI** - Run `codex login` to authenticate (primary provider)
-- **Gemini CLI** - Optional fallback when Codex hits rate limits
-- **uv** - Python package manager ([install](https://github.com/astral-sh/uv))
-
-## Getting Started
-
-The easiest way to set up Beads Orchestration is through the Claude Code skill. The skill provides a guided walkthrough that:
-
-1. Asks for your project details
-2. Clones and runs the bootstrap script
-3. Installs all agents, hooks, and MCP configuration
-4. Guides you through running discovery to create tech-specific supervisors
-
-### Installing the Skill
+## Quick Start
 
 ```bash
-# Clone this repo
-git clone https://github.com/AvivK5498/Claude-Code-Beads-Orchestration
-
-# Copy the skill to your Claude skills directory
-mkdir -p ~/.claude/skills/create-beads-orchestration
-cp Claude-Code-Beads-Orchestration/skills/create-beads-orchestration/SKILL.md ~/.claude/skills/create-beads-orchestration/
-```
-
-### Running the Skill
-
-In any Claude Code session:
-
-```
+# In any Claude Code session
 /create-beads-orchestration
 ```
 
-The skill will walk you through the entire setup process interactively. You can run it on:
-- **An existing project** - The skill detects your tech stack and creates appropriate supervisors
-- **A new project** - Start fresh and supervisors will be created based on what you build
+The skill walks you through setup, then creates tech-specific supervisors based on your codebase.
 
-After the skill completes and you restart Claude Code, your project will have full orchestration capabilities with enforced workflows.
-
----
-
-## Overview
-
-Beads Orchestration turns a single Claude Code session into a coordinated team of specialized agents. An orchestrator delegates tasks to supervisors who work on isolated feature branches, with all work validated by a code review agent before completion.
-
-**Key Design Principles:**
-- **Orchestrators delegate, they don't implement** - Enforced by hooks
-- **One bead = one branch = one task** - Git-native task isolation
-- **Mandatory code review** - No completion without approval
-- **Minimal context overhead** - Uses `beads` CLI instead of heavy MCP servers
-- **Process over knowledge** - Agents know how to code; we teach them the process
-- **Verification-first development** - Assumptions are bugs; verify before implementing
-
-## Philosophy: Process Over Knowledge
-
-Traditional agent prompts are bloated with code examples and tutorials. This is wasteful—Claude already knows how to write FastAPI endpoints or React components.
-
-**What agents need is not knowledge, but discipline.**
-
-Our supervisors are streamlined (~150-220 lines) and focus on:
-- **Process** - The beads workflow, verification phases, code review gates
-- **Scope** - What to handle vs. what to escalate
-- **Standards** - "Follow PEP-8", not "here's how to format code"
-
-What we remove:
-- Code examples longer than 3 lines
-- "Here's how to do X" tutorials
-- Pattern implementations
-- "Common mistakes" demonstrations
-
-**The discipline skill teaches the development process; Claude already knows the code.**
-
-## Verification-First Development
-
-All supervisors invoke the `subagents-discipline` skill which enforces:
+## How It Works
 
 ```
-Phase 0: DISCOVER - Find infrastructure (env vars, database, APIs)
-Phase 1: VERIFY   - Verify ALL assumptions before implementing
-Phase 2: HANDLE   - Handle failure modes explicitly
-Phase 3: TEST     - Test against real infrastructure
-Phase 4: CLAIM    - Only claim done with fresh evidence
+┌─────────────────────────────────────────┐
+│            ORCHESTRATOR                 │
+│  Investigates with Grep/Read/Glob       │
+│  Delegates implementation via Task()    │
+└──────────────────┬──────────────────────┘
+                   │
+       ┌───────────┼───────────┐
+       ▼           ▼           ▼
+  ┌─────────┐ ┌─────────┐ ┌─────────┐
+  │ react-  │ │ python- │ │ worker- │
+  │supervisor│ │supervisor│ │supervisor│
+  └────┬────┘ └────┬────┘ └────┬────┘
+       │           │           │
+   bd-BD-001   bd-BD-002   bd-BD-003
+   (branch)    (branch)    (branch)
 ```
 
-**Key mandates:**
-- **Interface verification** - NEVER write code against assumed interfaces. Inspect actual format first.
-- **Gate functions** - Cannot proceed without verification evidence
-- **No rubber-stamping** - Every claim requires `file:line` proof
+**Orchestrator:** Investigates the issue, identifies root cause, delegates with specific fix instructions.
 
-## Architecture
+**Supervisors:** Execute the fix confidently on isolated branches. Created by discovery agent based on your tech stack.
 
-### Claude-only Mode
+## Task Tracking
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         ORCHESTRATOR                            │
-│  (Main Claude session - delegates only, blocked from coding)    │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-           ┌───────────────┼───────────────┐
-           │               │               │
-           ▼               ▼               ▼
-    ┌──────────┐    ┌──────────┐    ┌──────────┐
-    │   Task   │    │   Task   │    │   Task   │
-    │ Subagent │    │ Subagent │    │ Subagent │
-    └────┬─────┘    └────┬─────┘    └────┬─────┘
-         │               │               │
-    Read-only:      Implements      Implements
-    - scout         on branch:      on branch:
-    - detective     bd-BD-001       bd-BD-002
-    - architect         │               │
-    - scribe            └───────┬───────┘
-    - code-reviewer             │
-                          Code Review
-                          (Required)
+Uses [beads](https://github.com/steveyegge/beads) for git-native task management:
+
+```bash
+bd create "Add auth" -d "JWT-based authentication"  # Create task
+bd update BD-001 --status in_progress               # Mark started
+bd comment BD-001 "Completed login endpoint"        # Log progress
+bd update BD-001 --status inreview                  # Mark done
+bd close BD-001                                     # Close task
 ```
 
-All agents run via Claude Task() - simple and no external dependencies.
+## Delegation Format
 
-### External Providers Mode
+```python
+Task(
+  subagent_type="react-supervisor",
+  prompt="""BEAD_ID: BD-001
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         ORCHESTRATOR                            │
-│  (Main Claude session - delegates only, blocked from coding)    │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-           ┌───────────────┼───────────────┐
-           │               │               │
-           ▼               ▼               ▼
-    ┌──────────┐    ┌──────────┐    ┌──────────┐
-    │ Provider │    │   Task   │    │   Task   │
-    │ Delegator│    │ Subagent │    │ Subagent │
-    └────┬─────┘    └────┬─────┘    └────┬─────┘
-         │               │               │
-    Codex/Gemini    Implements      Implements
-    agents:         on branch:      on branch:
-    - scout         bd-BD-001       bd-BD-002
-    - detective         │               │
-    - architect         └───────┬───────┘
-    - scribe                    │
-    - code-reviewer       Code Review
-                          (Required)
+Problem: Login button doesn't redirect after success
+Root cause: src/components/Login.tsx:45 - missing router.push()
+Fix: Add router.push('/dashboard') after successful auth"""
+)
 ```
 
-Read-only agents run on Codex (primary) with Gemini fallback, reducing Claude token usage.
+## Epics (Cross-Domain Features)
+
+For features spanning multiple supervisors:
+
+```bash
+bd create "User profiles" -d "..." --type epic           # Create epic
+bd create "DB schema" -d "..." --parent BD-001           # Child .1
+bd create "API endpoints" -d "..." --parent BD-001 --deps BD-001.1  # Child .2
+bd create "Frontend" -d "..." --parent BD-001 --deps BD-001.2       # Child .3
+```
+
+Children work on a shared epic branch. Orchestrator dispatches sequentially based on dependencies.
 
 ## What Gets Installed
 
-### Claude-only Mode
-
 ```
-your-project/
-├── .beads/                           # Git-native task tracking
-├── .claude/
-│   ├── agents/
-│   │   ├── scout.md                  # Codebase exploration (Task)
-│   │   ├── detective.md              # Bug investigation (Task)
-│   │   ├── architect.md              # Design & planning (Task)
-│   │   ├── scribe.md                 # Documentation (Task)
-│   │   ├── code-reviewer.md          # Code review gate (Task)
-│   │   ├── discovery.md              # Tech detection (Task)
-│   │   ├── worker-supervisor.md      # Small tasks (Task)
-│   │   └── merge-supervisor.md       # Conflict resolution (Task)
-│   ├── hooks/                        # 8 enforcement hooks
-│   ├── beads-workflow-injection.md   # Workflow injected into supervisors
-│   ├── frontend-reviews-requirement.md  # RAMS + WIG requirements for frontend
-│   ├── frontend-supervisors.txt      # List of frontend supervisors (populated by discovery)
-│   └── settings.json                 # Hook configuration
-├── CLAUDE.md                         # Orchestrator instructions
-└── .gitignore                        # Excludes .beads/
+.claude/
+├── agents/           # Supervisors (discovery creates tech-specific ones)
+├── hooks/            # Workflow enforcement
+├── skills/           # subagents-discipline
+└── settings.json
+CLAUDE.md             # Orchestrator instructions
+.beads/               # Task database
 ```
-
-### External Providers Mode
-
-```
-your-project/
-├── .beads/                           # Git-native task tracking
-├── .mcp.json                         # Provider delegator MCP config
-├── .claude/
-│   ├── agents/
-│   │   ├── scout.md                  # Codebase exploration (Codex)
-│   │   ├── detective.md              # Bug investigation (Codex)
-│   │   ├── architect.md              # Design & planning (Codex)
-│   │   ├── scribe.md                 # Documentation (Codex)
-│   │   ├── code-reviewer.md          # Code review gate (Codex)
-│   │   ├── discovery.md              # Tech detection (Task)
-│   │   ├── worker-supervisor.md      # Small tasks (Task)
-│   │   └── merge-supervisor.md       # Conflict resolution (Task)
-│   ├── hooks/                        # 9 enforcement hooks (includes enforce-codex-delegation.sh)
-│   ├── beads-workflow-injection.md   # Workflow injected into supervisors
-│   ├── frontend-reviews-requirement.md  # RAMS + WIG requirements for frontend
-│   ├── frontend-supervisors.txt      # List of frontend supervisors (populated by discovery)
-│   └── settings.json                 # Hook configuration
-├── CLAUDE.md                         # Orchestrator instructions
-└── .gitignore                        # Excludes .beads/ and .mcp.json
-```
-
-Tech-specific supervisors (e.g., `react-supervisor`, `python-backend-supervisor`) are created dynamically by the discovery agent based on your codebase.
-
-## Core Concepts
-
-### Beads
-
-[Beads](https://github.com/steveyegge/beads) is a git-native task tracker. Each "bead" represents a unit of work.
-
-```bash
-bd create "Add user authentication" -d "Implement JWT-based auth"  # Create bead
-bd list                              # List all beads
-bd show BD-001                       # Show bead details
-bd comment BD-001 "Started work"     # Add progress comment
-bd update BD-001 --status inreview   # Mark ready for merge
-bd close BD-001                      # Close completed bead
-```
-
-### Agent Types
-
-| Agent | Claude-only | External Providers | Purpose | Can Write Code? |
-|-------|-------------|-------------------|---------|-----------------|
-| scout | Task | Codex | Find files, explore structure | No |
-| detective | Task | Codex | Investigate bugs, trace issues | No |
-| architect | Task | Codex | Design solutions, plan approach | No |
-| scribe | Task | Codex | Write documentation | No |
-| code-reviewer | Task | Codex | Review code, approve completion | No |
-| discovery | Task | Task | Detect tech stack, create supervisors | Yes |
-| *-supervisor | Task | Task | Implement features, fix bugs | Yes |
-
-### Delegation Patterns (Enforced)
-
-The orchestration workflow **enforces** delegation through hooks and subagent configuration. The orchestrator cannot bypass these patterns.
-
-#### Claude-only Mode
-
-**All agents use Task():**
-```python
-# Read-only task
-Task(
-    subagent_type="scout",
-    prompt="Find all authentication-related files"
-)
-
-# Implementation task
-Task(
-    subagent_type="react-supervisor",
-    prompt="BEAD_ID: BD-001\n\nImplement login component with form validation"
-)
-```
-
-#### External Providers Mode
-
-**Read-only tasks → Provider Delegator (enforced by hook):**
-```python
-mcp__provider_delegator__invoke_agent(
-    agent="scout",
-    task_prompt="Find all authentication-related files"
-)
-```
-
-**Implementation tasks → Task Subagents:**
-```python
-Task(
-    subagent_type="react-supervisor",
-    prompt="BEAD_ID: BD-001\n\nImplement login component with form validation"
-)
-```
-
-Hooks block the orchestrator from using implementation tools directly. Supervisors are required to follow the beads workflow, request code review, and use proper completion formats.
-
-## Workflow
-
-### Standard Development Flow
-
-```
-1. Create bead         → bd create "Feature X" -d "Details"
-2. Dispatch supervisor → Orchestrator delegates with BEAD_ID
-3. Supervisor works    → Creates branch bd-BD-001, implements, commits
-4. Code review         → Supervisor calls code-reviewer (mandatory)
-5. Mark complete       → bd update BD-001 --status inreview
-6. Orchestrator merges → git merge bd-BD-001
-7. Close bead          → bd close BD-001
-```
-
-### Supervisor Workflow (Enforced)
-
-Every supervisor follows the beads workflow automatically:
-
-```
-ON START:
-  1. Receive BEAD_ID from orchestrator
-  2. Mark in progress: bd update {BEAD_ID} --status in_progress
-  3. Create branch: git checkout -b bd-{BEAD_ID}
-  4. INVOKE DISCIPLINE SKILL (mandatory)
-
-DURING WORK (Verification-First):
-  5. Phase 0: Discover infrastructure
-  6. Phase 1: Verify ALL assumptions before coding
-  7. Phase 2: Handle failure modes explicitly
-  8. Phase 3: Test against real infrastructure
-  9. Commit frequently, log progress
-
-ON COMPLETION:
-  10. Phase 4: Run fresh verification, capture evidence
-  11. Request code review (MANDATORY)
-  12. If approved → Mark: bd update {BEAD_ID} --status inreview
-  13. If not approved → Fix issues, repeat code review
-```
-
-### Epic Workflow (Cross-Domain Features)
-
-For features spanning multiple supervisors (DB + API + Frontend), use epics:
-
-```
-CRITICAL: If a task spans multiple supervisors, you MUST create an EPIC.
-Cross-domain = Epic. No exceptions.
-```
-
-**When to Use Epic vs Standalone:**
-
-| Signals | Workflow |
-|---------|----------|
-| Single tech domain | Standalone bead |
-| Multiple supervisors needed | **Epic** |
-| "First X, then Y" thinking | **Epic** |
-| Infrastructure + code change | **Epic** |
-
-**Epic Workflow:**
-
-```bash
-# 1. Create epic
-bd create "Feature X" -d "Description" --type epic
-git checkout -b bd-{EPIC_ID}
-
-# 2. Create design doc (architect creates .designs/{EPIC_ID}.md)
-bd update {EPIC_ID} --design ".designs/{EPIC_ID}.md"
-
-# 3. Create children with dependencies
-bd create "DB schema" -d "..." --parent {EPIC_ID}              # .1
-bd create "API endpoints" -d "..." --parent {EPIC_ID} --deps {EPIC_ID}.1  # .2
-bd create "Frontend" -d "..." --parent {EPIC_ID} --deps {EPIC_ID}.2       # .3
-
-# 4. Dispatch children sequentially (use bd ready to find unblocked tasks)
-# 5. Epic-level code review after ALL children complete
-# 6. Merge: git merge bd-{EPIC_ID} && bd close {EPIC_ID}
-```
-
-**Key Differences from Standalone:**
-- Children work on shared epic branch (not individual branches)
-- Children skip per-task code review (review at epic level)
-- Design doc ensures consistency across children
-- Hook enforces sequential dispatch based on `--deps`
-
-### Parallel Work
-
-The branch-per-bead model enables parallel development:
-
-```
-main
-  │
-  ├─── bd-BD-001 (react-supervisor: login page)
-  │
-  ├─── bd-BD-002 (python-backend-supervisor: auth API)
-  │
-  └─── bd-BD-003 (infra-supervisor: CI pipeline)
-```
-
-When supervisors complete, the orchestrator merges branches. Conflicts trigger `merge-supervisor`.
-
-### Branch Strategy
-
-All branches are **local only**. The workflow intentionally keeps branches local to:
-- Avoid authentication complexity in automated workflows
-- Prevent race conditions with remote repositories
-- Simplify conflict resolution
-
-Push to remote when you're ready, after the orchestrator has merged completed work to main.
-
-## Code Review Gate
-
-**All supervisors must pass code review before completion.**
-
-### How Code Review Works
-
-The code-reviewer agent always gathers context from the bead first:
-
-```bash
-# Step 0: Gather context (always done first)
-bd show {BEAD_ID}           # Task description
-bd comments {BEAD_ID}       # Supervisor's implementation notes
-git diff main...bd-{BEAD_ID}  # Actual code changes
-```
-
-This ensures the code-reviewer has full context regardless of how it was invoked (Claude-only or external providers).
-
-### Two-Phase Review
-
-1. **Phase 1: Spec Compliance**
-   - Did they implement all requirements?
-   - Did they add unrequested features (over-engineering)?
-   - Did they misunderstand the task?
-
-2. **Phase 2: Code Quality** (only if Phase 1 passes)
-   - Logic errors, bugs
-   - Security vulnerabilities
-   - Pattern violations
-   - Maintainability issues
-
-**Approval:**
-- Reviewer adds: `bd comment {BEAD_ID} "CODE REVIEW: APPROVED - [summary]"`
-- Supervisor can now complete
-
-**Rejection:**
-- Reviewer lists issues with `file:line` references
-- Supervisor must fix and request review again
-
-### Mode-Specific Behavior
-
-| Mode | Code Review Invocation |
-|------|----------------------|
-| Claude-only | Orchestrator dispatches via `Task(subagent_type="code-reviewer", prompt="Review BEAD_ID: BD-001")` |
-| External Providers | Supervisor calls `mcp__provider_delegator__invoke_agent(agent="code-reviewer", ...)` |
-
-In both modes, the code-reviewer reads context from the bead, not from the prompt. This ensures consistent reviews.
-
-## Frontend Reviews (RAMS + Web Interface Guidelines)
-
-Frontend supervisors have additional mandatory review requirements beyond code review.
-
-### Required Reviews
-
-| Review | Skill | Purpose |
-|--------|-------|---------|
-| **RAMS** | `/rams` | Accessibility audit (WCAG 2.1 compliance) |
-| **Web Interface Guidelines** | `/web-interface-guidelines` | Vercel design pattern compliance |
-
-### How It Works
-
-1. **Discovery agent** identifies frontend supervisors and registers them in `.claude/frontend-supervisors.txt`
-2. **Frontend supervisors** must run both skills before completing:
-   ```
-   Skill(skill="rams", args="path/to/component.tsx")
-   Skill(skill="web-interface-guidelines")
-   ```
-3. **Document results** on the bead:
-   ```bash
-   bd comment {BEAD_ID} "Reviews: RAMS 95/100, WIG passed"
-   ```
-4. **SubagentStop hook** (`enforce-frontend-reviews.sh`) blocks completion if any requirement is missing
-
-### What RAMS Checks
-
-| Category | Issues Caught |
-|----------|---------------|
-| **Critical** | Missing alt text, buttons without accessible names, inputs without labels |
-| **Serious** | Missing focus outlines, no keyboard handlers, color-only information |
-| **Moderate** | Heading hierarchy issues, positive tabIndex values |
-| **Visual** | Spacing inconsistencies, contrast issues, missing states |
-
-### What WIG Checks
-
-- Vercel Web Interface Guidelines compliance
-- Design system consistency
-- Component patterns and best practices
-- Accessibility anti-patterns (icon buttons without aria-label, inputs without labels)
-
-### Workflow
-
-```
-Implement → Run tests → Run RAMS → Run WIG → Fix issues → Document on bead → Mark inreview
-```
-
-**Note:** The hook checks for actual Skill tool invocations in the transcript, not text output. Supervisors cannot fake compliance.
 
 ## Hooks
 
-| Hook | Lifecycle | Mode | Purpose |
-|------|-----------|------|---------|
-| `block-orchestrator-tools.sh` | PreToolUse | Both | Prevents orchestrator from using Edit/Write/etc. |
-| `enforce-codex-delegation.sh` | PreToolUse (Task) | External only | Forces read-only agents to use provider_delegator |
-| `enforce-bead-for-supervisor.sh` | PreToolUse (Task) | Both | Requires BEAD_ID for supervisors, EPIC_BRANCH for children |
-| `enforce-sequential-dispatch.sh` | PreToolUse (Task) | Both | Blocks epic children with unresolved deps, enforces design doc |
-| `block-branch-for-epic-child.sh` | PreToolUse (Bash) | Both | Blocks `git checkout -b` for epic children (must use shared branch) |
-| `remind-inprogress.sh` | PreToolUse (Task) | Both | Warns about in-progress beads |
-| `enforce-concise-response.sh` | PostToolUse (Task) | Both | Limits response verbosity |
-| `validate-completion.sh` | SubagentStop | Both | Blocks completion without code review (skips for epic children) |
-| `enforce-frontend-reviews.sh` | SubagentStop | Both | Requires RAMS + WIG reviews for frontend supervisors |
-| `session-start.sh` | SessionStart | Both | Session initialization |
-| `clarify-vague-request.sh` | UserPromptSubmit | Both | Clarification prompts + cross-domain epic reminder |
+| Hook | Purpose |
+|------|---------|
+| `block-orchestrator-tools.sh` | Orchestrator can't Edit/Write |
+| `enforce-bead-for-supervisor.sh` | Supervisors need BEAD_ID |
+| `validate-epic-close.sh` | Can't close epic with open children |
+| `enforce-branch-before-edit.sh` | Must be on feature branch to edit |
+| `validate-completion.sh` | Completion format requirements |
 
-**Note:** In Claude-only mode, `enforce-codex-delegation.sh` is not installed since all agents use Task() directly.
+## Requirements
 
-## MCP Provider Delegator (External Providers Mode Only)
-
-> **Note:** This section only applies to External Providers mode. In Claude-only mode, the provider_delegator is not installed and all agents use Task() directly.
-
-The `provider_delegator` MCP server runs read-only agents with automatic fallback:
-
-```
-┌─────────────────────────────────────────┐
-│           Claude Code Session           │
-│                                         │
-│  mcp__provider_delegator__invoke_agent()│
-│               │                         │
-└───────────────┼─────────────────────────┘
-                │
-                ▼
-┌─────────────────────────────────────────┐
-│       MCP Provider Delegator Server     │
-│                                         │
-│  1. Load agent template (.md file)      │
-│  2. Try Codex (primary)                 │
-│  3. If rate limited → Try Gemini        │
-│  4. If both fail → Return fallback hint │
-└─────────────────────────────────────────┘
-```
-
-**Fallback Chain:** Codex → Gemini → Claude Task (with fallback hint)
-
-**Supported Agents:** scout, detective, architect, scribe, code-reviewer
-
-**Fallback Scenarios:**
-| Situation | Behavior |
-|-----------|----------|
-| Codex works | Uses Codex |
-| Codex rate limited | Falls back to Gemini |
-| Codex not installed | Falls back to Gemini |
-| Both rate limited | Returns Claude Task() fallback hint |
-| Both not installed | Returns Claude Task() fallback hint |
-
-The delegator gracefully handles missing CLIs - if Codex isn't installed but Gemini is, it automatically uses Gemini.
-
-## Discovery Agent
-
-The discovery agent scans your codebase and creates appropriate supervisors:
-
-| Detected | Creates Supervisor |
-|----------|-------------------|
-| package.json + React/Next | react-supervisor |
-| package.json + Vue/Nuxt | vue-supervisor |
-| package.json + Express/Fastify | node-backend-supervisor |
-| requirements.txt + FastAPI/Django | python-backend-supervisor |
-| go.mod | go-supervisor |
-| Cargo.toml | rust-supervisor |
-| Dockerfile | infra-supervisor |
-| pubspec.yaml | flutter-supervisor |
-
-Supervisors are sourced from [sub-agents.directory](https://github.com/ayush-that/sub-agents.directory) and then **filtered** to follow our process-over-knowledge philosophy:
-
-**Kept:** Standards references, tech stack names, scope definitions, quality guidelines
-**Removed:** Code examples (>3 lines), tutorials, pattern implementations, "common mistakes"
-
-**Target size:** ~150-220 lines per supervisor (down from 500-800 lines in external sources)
-
-### Frontend Supervisor Registration
-
-When the discovery agent creates frontend supervisors (React, Vue, etc.), it:
-1. Registers the supervisor name in `.claude/frontend-supervisors.txt`
-2. Injects the frontend reviews requirement into the supervisor prompt
-3. Grants `tools: *` access so the supervisor can invoke RAMS and WIG skills
-
-This enables the `enforce-frontend-reviews.sh` hook to target the correct supervisors dynamically.
-
----
-
-## Advanced: Manual Bootstrap
-
-If you prefer not to use the skill, you can run the bootstrap script directly:
-
-```bash
-git clone --depth=1 https://github.com/AvivK5498/Claude-Code-Beads-Orchestration "${TMPDIR:-/tmp}/beads-orchestration"
-```
-
-### Claude-only Mode (Recommended)
-
-```bash
-python3 "${TMPDIR:-/tmp}/beads-orchestration/bootstrap.py" \
-  --project-name "MyProject" \
-  --project-dir /path/to/your/project \
-  --claude-only
-```
-
-### External Providers Mode
-
-```bash
-python3 "${TMPDIR:-/tmp}/beads-orchestration/bootstrap.py" \
-  --project-name "MyProject" \
-  --project-dir /path/to/your/project
-```
-
-### Bootstrap Options
-
-| Flag | Description |
-|------|-------------|
-| `--project-name` | Project name for agent templates (auto-inferred if not provided) |
-| `--project-dir` | Target project directory (default: current directory) |
-| `--claude-only` | Use Claude Task() for all agents, no external providers |
-
-After bootstrap completes:
-1. Restart Claude Code to load hooks and configuration
-2. Run the discovery agent to create tech-specific supervisors
-
----
+- Claude Code with hooks support
+- beads CLI: `brew install steveyegge/beads/bd` or `npm install -g @beads/bd`
 
 ## License
 
 MIT
-
-## Credits
-
-- [beads](https://github.com/steveyegge/beads) - Git-native task tracking by Steve Yegge
-- [sub-agents.directory](https://github.com/ayush-that/sub-agents.directory) - External agent templates
