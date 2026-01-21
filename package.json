@@ -1,0 +1,36 @@
+{
+  "name": "beads-orchestration",
+  "version": "1.0.0",
+  "description": "Multi-agent orchestration for Claude Code with automatic task management",
+  "author": "Aviv Kaplan",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AvivK5498/Claude-Code-Beads-Orchestration"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "orchestration",
+    "ai-agents",
+    "task-management",
+    "beads"
+  ],
+  "os": [
+    "darwin",
+    "linux"
+  ],
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js"
+  },
+  "files": [
+    "scripts/",
+    "skills/",
+    "templates/",
+    "bootstrap.py",
+    "README.md"
+  ],
+  "bin": {
+    "beads-orchestration": "./scripts/cli.js"
+  }
+}
