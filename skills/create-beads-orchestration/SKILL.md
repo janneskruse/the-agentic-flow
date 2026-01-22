@@ -18,7 +18,7 @@ You MUST follow ALL 4 steps below in exact order. Missing ANY step is a CATASTRO
 | Step | Action | Checkpoint |
 |------|--------|------------|
 | 1 | Get project info from user | Have project name, directory, AND provider choice |
-| 2 | Clone repo and run bootstrap | Bootstrap completes successfully |
+| 2 | Run bootstrap | Bootstrap completes successfully |
 | 3 | **STOP** - Instruct user to restart Claude Code | User confirms they will restart |
 | 4 | After restart: Run discovery agent | Supervisors created in .claude/agents/ |
 
@@ -78,21 +78,35 @@ AskUserQuestion(
 
 ---
 
-## Step 2: Clone and Run Bootstrap
+## Step 2: Run Bootstrap
+
+### 2.1 Find Package Location
+
+First, check if the package was installed via npm:
 
 ```bash
-git clone --depth=1 https://github.com/AvivK5498/Claude-Code-Beads-Orchestration "${TMPDIR:-/tmp}/beads-orchestration-setup"
+cat ~/.claude/beads-orchestration-path.txt
 ```
+
+If this file exists, use its contents as `BEADS_PKG_PATH`. If not, clone from GitHub:
+
+```bash
+# Only if ~/.claude/beads-orchestration-path.txt does not exist:
+git clone --depth=1 https://github.com/AvivK5498/Claude-Code-Beads-Orchestration "${TMPDIR:-/tmp}/beads-orchestration-setup"
+# Then use: BEADS_PKG_PATH="${TMPDIR:-/tmp}/beads-orchestration-setup"
+```
+
+### 2.2 Run Bootstrap
 
 ```bash
 # If user selected "Claude only":
-python3 "${TMPDIR:-/tmp}/beads-orchestration-setup/bootstrap.py" \
+python3 "${BEADS_PKG_PATH}/bootstrap.py" \
   --project-name "{{PROJECT_NAME}}" \
   --project-dir "{{PROJECT_DIR}}" \
   --claude-only
 
 # If user selected "External providers":
-python3 "${TMPDIR:-/tmp}/beads-orchestration-setup/bootstrap.py" \
+python3 "${BEADS_PKG_PATH}/bootstrap.py" \
   --project-name "{{PROJECT_NAME}}" \
   --project-dir "{{PROJECT_DIR}}"
 ```
@@ -169,9 +183,10 @@ Discovery will:
 
 ---
 
-## Cleanup (Optional)
+## Cleanup (Only if cloned from GitHub)
 
 ```bash
+# Only needed if you cloned from GitHub (not if installed via npm)
 rm -rf "${TMPDIR:-/tmp}/beads-orchestration-setup"
 ```
 

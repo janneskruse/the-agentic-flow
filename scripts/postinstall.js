@@ -8,7 +8,8 @@ const SKILL_NAME = 'create-beads-orchestration';
 
 // Get paths
 const homeDir = os.homedir();
-const claudeSkillsDir = path.join(homeDir, '.claude', 'skills', SKILL_NAME);
+const claudeDir = path.join(homeDir, '.claude');
+const claudeSkillsDir = path.join(claudeDir, 'skills', SKILL_NAME);
 const packageDir = path.dirname(__dirname);
 const sourceSkillDir = path.join(packageDir, 'skills', SKILL_NAME);
 
@@ -46,8 +47,19 @@ try {
   process.exit(1);
 }
 
+// Save package location for bootstrap.py
+const configFile = path.join(claudeDir, 'beads-orchestration-path.txt');
+try {
+  fs.writeFileSync(configFile, packageDir);
+  console.log(`✅ Saved package path to: ${configFile}`);
+} catch (err) {
+  console.error(`⚠️  Could not save package path: ${err.message}`);
+}
+
 console.log(`
 🎉 Installation complete!
+
+Package location: ${packageDir}
 
 Usage:
   In any Claude Code session, run:
