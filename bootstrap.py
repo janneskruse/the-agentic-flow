@@ -7,14 +7,14 @@ Creates:
 - .claude/agents/ with agent templates (copied, not generated)
 - .claude/hooks/ with hook scripts
 - .claude/settings.json with hook configuration
-- .mcp.json with provider-delegator configuration (unless --claude-only)
+- .mcp.json with provider-delegator configuration (only with --external-providers)
 
 Usage:
-    python bootstrap.py [--project-name NAME] [--project-dir DIR] [--claude-only]
+    python bootstrap.py [--project-name NAME] [--project-dir DIR] [--with-kanban-ui]
 
 Modes:
-    Default: Sets up provider_delegator MCP for Codex/Gemini delegation
-    --claude-only: All agents use Claude Task() directly, no external providers
+    Default: All agents use Claude Task() directly (claude-only)
+    --external-providers: Sets up provider_delegator MCP for Codex/Gemini delegation
 """
 
 import os
@@ -39,7 +39,7 @@ TEMPLATES_DIR = SCRIPT_DIR / "templates"
 # CONFIGURATION
 # ============================================================================
 
-CORE_AGENTS = ["scout", "detective", "architect", "worker-supervisor", "scribe", "discovery", "merge-supervisor"]
+CORE_AGENTS = ["scout", "detective", "architect", "scribe", "discovery", "merge-supervisor", "code-reviewer"]
 
 # NOTE: Supervisors are NOT bootstrapped - they are created dynamically by the
 # discovery agent which fetches specialists from the external agents directory
@@ -417,7 +417,7 @@ def install_web_interface_guidelines() -> bool:
 # AGENTS (TEMPLATE COPYING)
 # ============================================================================
 
-def copy_agents(project_dir: Path, project_name: str, claude_only: bool = False) -> list:
+def copy_agents(project_dir: Path, project_name: str, claude_only: bool = False, with_kanban_ui: bool = False) -> list:
     """Copy core agent templates from templates/ directory.
 
     NOTE: Supervisors are NOT copied here - they are created dynamically
@@ -446,11 +446,17 @@ def copy_agents(project_dir: Path, project_name: str, claude_only: bool = False)
         print(f"  - Copied {agent_file.name}")
 
     # Copy beads workflow injection snippet (used by discovery agent)
-    beads_workflow_src = TEMPLATES_DIR / "beads-workflow-injection.md"
+    # Select API version (with git fallback) or git-only version based on flag
+    if with_kanban_ui:
+        beads_workflow_src = TEMPLATES_DIR / "beads-workflow-injection-api.md"
+        workflow_type = "API + git fallback"
+    else:
+        beads_workflow_src = TEMPLATES_DIR / "beads-workflow-injection-git.md"
+        workflow_type = "git only"
     beads_workflow_dest = project_dir / ".claude" / "beads-workflow-injection.md"
     if beads_workflow_src.exists():
         shutil.copy2(beads_workflow_src, beads_workflow_dest)
-        print("  - Copied beads-workflow-injection.md")
+        print(f"  - Copied beads-workflow-injection.md ({workflow_type})")
 
     # Copy UI constraints (used by discovery agent for frontend supervisors)
     ui_constraints_src = TEMPLATES_DIR / "ui-constraints.md"
@@ -526,8 +532,8 @@ def copy_hooks(project_dir: Path, claude_only: bool = False) -> list:
     hooks_template_dir = TEMPLATES_DIR / "hooks"
     copied = []
 
-    # Hooks to skip in claude-only mode (provider delegation enforcement)
-    skip_in_claude_only = {"enforce-codex-delegation.sh"}
+    # Hooks to skip in claude-only mode (none currently - all hooks apply to both modes)
+    skip_in_claude_only = set()
 
     for hook_file in hooks_template_dir.glob("*.sh"):
         # Skip provider enforcement hooks in claude-only mode
@@ -562,28 +568,11 @@ def copy_settings(project_dir: Path, claude_only: bool = False) -> None:
     settings_template = TEMPLATES_DIR / "settings.json"
     settings_dest = project_dir / ".claude" / "settings.json"
 
+    # Settings are the same for both modes now (no provider-specific hooks)
+    shutil.copy2(settings_template, settings_dest)
     if claude_only:
-        # Load template, remove provider enforcement hook reference
-        settings = json.loads(settings_template.read_text())
-
-        # Remove enforce-codex-delegation.sh from PreToolUse hooks
-        if "hooks" in settings and "PreToolUse" in settings["hooks"]:
-            for hook_group in settings["hooks"]["PreToolUse"]:
-                if "hooks" in hook_group:
-                    hook_group["hooks"] = [
-                        h for h in hook_group["hooks"]
-                        if "enforce-codex-delegation.sh" not in h.get("command", "")
-                    ]
-                    # Remove empty hook groups
-            settings["hooks"]["PreToolUse"] = [
-                hg for hg in settings["hooks"]["PreToolUse"]
-                if hg.get("hooks")
-            ]
-
-        settings_dest.write_text(json.dumps(settings, indent=2))
-        print("  - Created settings.json (claude-only mode, no provider enforcement)")
+        print("  - Copied settings.json (claude-only mode)")
     else:
-        shutil.copy2(settings_template, settings_dest)
         print("  - Copied settings.json")
 
     print("  DONE: settings configured")
@@ -765,12 +754,15 @@ def main():
     parser = argparse.ArgumentParser(description="Bootstrap beads-based orchestration")
     parser.add_argument("--project-name", default=None, help="Project name (auto-inferred if not provided)")
     parser.add_argument("--project-dir", default=".", help="Project directory")
-    parser.add_argument("--claude-only", action="store_true",
-                        help="Use Claude Task() for all agents (no external providers)")
+    parser.add_argument("--external-providers", action="store_true",
+                        help="Use Codex/Gemini for delegation (default: Claude-only)")
+    parser.add_argument("--with-kanban-ui", action="store_true",
+                        help="Use Beads Kanban UI API for worktree creation (with git fallback)")
     args = parser.parse_args()
 
     project_dir = Path(args.project_dir).resolve()
-    claude_only = args.claude_only
+    claude_only = not args.external_providers  # Default is now claude-only
+    with_kanban_ui = args.with_kanban_ui
 
     # Ensure project directory exists
     project_dir.mkdir(parents=True, exist_ok=True)
@@ -783,9 +775,11 @@ def main():
         print(f"Auto-inferred project name: {project_name}")
 
     mode_str = "CLAUDE-ONLY" if claude_only else "EXTERNAL PROVIDERS"
+    worktree_str = "API + git fallback" if with_kanban_ui else "git only"
     print(f"\nBootstrapping beads orchestration for: {project_name}")
     print(f"Directory: {project_dir}")
     print(f"Mode: {mode_str}")
+    print(f"Worktrees: {worktree_str}")
     print("=" * 60)
 
     # Verify templates exist
@@ -812,7 +806,7 @@ def main():
         install_rams()
         install_web_interface_guidelines()
 
-        copy_agents(project_dir, project_name, claude_only=False)
+        copy_agents(project_dir, project_name, claude_only=False, with_kanban_ui=with_kanban_ui)
         copy_skills(project_dir, claude_only=False)
         copy_hooks(project_dir, claude_only=False)
         copy_settings(project_dir, claude_only=False)
@@ -831,7 +825,7 @@ def main():
         install_rams()
         install_web_interface_guidelines()
 
-        copy_agents(project_dir, project_name, claude_only=True)
+        copy_agents(project_dir, project_name, claude_only=True, with_kanban_ui=with_kanban_ui)
         copy_skills(project_dir, claude_only=True)
         copy_hooks(project_dir, claude_only=True)
         copy_settings(project_dir, claude_only=True)

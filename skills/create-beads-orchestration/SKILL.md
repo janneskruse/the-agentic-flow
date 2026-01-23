@@ -6,75 +6,112 @@ user-invocable: true
 
 # Create Beads Orchestration
 
-Set up lightweight multi-agent orchestration with git-native task tracking and mandatory code review gates.
+Set up lightweight multi-agent orchestration with git-native task tracking for Claude Code.
+
+## What This Skill Does
+
+This skill bootstraps a complete multi-agent workflow where:
+
+- **Orchestrator** (you) investigates issues, manages tasks, delegates implementation
+- **Supervisors** (specialized agents) execute fixes in isolated worktrees
+- **Beads CLI** tracks all work with git-native task management
+- **Hooks** enforce workflow discipline automatically
+
+Each task gets its own worktree at `.worktrees/bd-{BEAD_ID}/`, keeping main clean and enabling parallel work.
+
+## Recommended: Beads Kanban UI
+
+For the best experience, use this orchestration with **[Beads Kanban UI](https://github.com/AvivK5498/Beads-Kanban-UI)** - a visual task management interface that provides:
+
+- Kanban board for beads (tasks, epics, subtasks)
+- Dependency visualization
+- Worktree management via API
+- Branch status tracking
+- PR integration
+
+The setup wizard will ask if you're using the Kanban UI to configure the optimal worktree workflow.
 
 ---
 
-## CRITICAL: Mandatory 4-Step Workflow
+## Step 0: Detect Setup State (ALWAYS RUN FIRST)
+
+<detection-phase>
+**Before doing anything else, detect if this is a fresh setup or a resume after restart.**
+
+Check for bootstrap artifacts:
+```bash
+ls .claude/agents/scout.md 2>/dev/null && echo "BOOTSTRAP_COMPLETE" || echo "FRESH_SETUP"
+```
+
+**If `BOOTSTRAP_COMPLETE`:**
+- Bootstrap already ran in a previous session
+- Skip directly to **Step 4: Run Discovery**
+- Do NOT ask for project info or run bootstrap again
+
+**If `FRESH_SETUP`:**
+- This is a new installation
+- Proceed to **Step 1: Get Project Info**
+</detection-phase>
+
+---
+
+## Workflow Overview
 
 <mandatory-workflow>
-You MUST follow ALL 4 steps below in exact order. Missing ANY step is a CATASTROPHIC FAILURE.
-
-| Step | Action | Checkpoint |
-|------|--------|------------|
-| 1 | Get project info from user | Have project name, directory, AND provider choice |
-| 2 | Run bootstrap | Bootstrap completes successfully |
-| 3 | **STOP** - Instruct user to restart Claude Code | User confirms they will restart |
-| 4 | After restart: Run discovery agent | Supervisors created in .claude/agents/ |
-
-**DO NOT:**
-- Skip asking for project info
-- **Skip asking about provider delegation (Claude-only vs External providers)**
-- Continue after bootstrap without telling user to restart
-- Forget to run discovery after restart
-- Consider setup complete until discovery has run
+| Step | Action | When to Run |
+|------|--------|-------------|
+| 0 | Detect setup state | **ALWAYS** (determines path) |
+| 1 | Get project info from user | Fresh setup only |
+| 2 | Run bootstrap | Fresh setup only |
+| 3 | **STOP** - Instruct user to restart | Fresh setup only |
+| 4 | Run discovery agent | After restart OR if bootstrap already complete |
 
 **The setup is NOT complete until Step 4 (discovery) has run.**
 </mandatory-workflow>
 
 ---
 
-## Step 1: Get Project Info
+## Step 1: Get Project Info (Fresh Setup Only)
 
 <critical-step1>
-**YOU MUST ASK ALL THREE QUESTIONS BEFORE PROCEEDING TO STEP 2 using AskUserQuestion.**
+**YOU MUST GET PROJECT INFO AND ASK THE KANBAN UI QUESTION BEFORE PROCEEDING TO STEP 2.**
 
 1. **Project directory**: Where to install (default: current working directory)
 2. **Project name**: For agent templates (will auto-infer from package.json/pyproject.toml if not provided)
-3. **Provider delegation**: MANDATORY - You MUST use AskUserQuestion for this choice
+3. **Kanban UI**: Ask if using Beads Kanban UI
 </critical-step1>
 
 ### 1.1 Get Project Directory and Name
 
 Ask the user or auto-detect from package.json/pyproject.toml.
 
-### 1.2 MANDATORY: Ask Provider Delegation Choice
+### 1.2 MANDATORY: Ask Kanban UI Question
 
 <mandatory-question>
-**YOU MUST CALL AskUserQuestion WITH THIS EXACT QUESTION BEFORE RUNNING BOOTSTRAP.**
-
-Do NOT skip this. Do NOT assume a default. Do NOT proceed without the user's explicit choice.
+**YOU MUST CALL AskUserQuestion BEFORE RUNNING BOOTSTRAP.**
 
 ```
 AskUserQuestion(
-  questions=[{
-    "question": "How should read-only agents (scout, detective, architect, scribe, code-reviewer) be executed?",
-    "header": "Providers",
-    "options": [
-      {"label": "Claude only (Recommended)", "description": "All agents run via Claude Task(). Simpler setup, no external dependencies."},
-      {"label": "External providers", "description": "Delegate to Codex CLI (with Gemini fallback). Requires codex login and optional gemini CLI."}
-    ],
-    "multiSelect": false
-  }]
+  questions=[
+    {
+      "question": "Are you using Beads Kanban UI for visual task management?",
+      "header": "Kanban UI",
+      "options": [
+        {"label": "Yes, using Beads Kanban UI (Recommended)", "description": "Worktrees created via API (localhost:3008) with git fallback. Get it at: github.com/AvivK5498/Beads-Kanban-UI"},
+        {"label": "No, git worktrees only", "description": "Worktrees created via git commands directly. No UI dependency."}
+      ],
+      "multiSelect": false
+    }
+  ]
 )
 ```
 
 **After user answers:**
-- If "Claude only" → use `--claude-only` flag in bootstrap
-- If "External providers" → do NOT use `--claude-only` flag
+- If "Yes, using Beads Kanban UI" → use `--with-kanban-ui` flag in bootstrap
+- If "No, git worktrees only" → do NOT use `--with-kanban-ui` flag
 </mandatory-question>
 
-**DO NOT proceed to Step 2 until you have the provider choice from the user.**
+**DO NOT proceed to Step 2 until you have the Kanban UI choice from the user.**
 
 ---
 
@@ -99,13 +136,13 @@ git clone --depth=1 https://github.com/AvivK5498/Claude-Code-Beads-Orchestration
 ### 2.2 Run Bootstrap
 
 ```bash
-# If user selected "Claude only":
+# With Kanban UI:
 python3 "${BEADS_PKG_PATH}/bootstrap.py" \
   --project-name "{{PROJECT_NAME}}" \
   --project-dir "{{PROJECT_DIR}}" \
-  --claude-only
+  --with-kanban-ui
 
-# If user selected "External providers":
+# Without Kanban UI (git worktrees only):
 python3 "${BEADS_PKG_PATH}/bootstrap.py" \
   --project-name "{{PROJECT_NAME}}" \
   --project-dir "{{PROJECT_DIR}}"
@@ -148,12 +185,14 @@ Tell the user:
 
 ---
 
-## Step 4: Run Discovery (After Restart)
+## Step 4: Run Discovery (After Restart OR Detection)
 
 <post-restart>
-If the user returns after restart and says "continue setup" or similar:
+**Run this step if:**
+- Step 0 detected `BOOTSTRAP_COMPLETE`, OR
+- User returned after restart and said "continue setup" or ran `/create-beads-orchestration` again
 
-1. Verify bootstrap completed (check for `.claude/agents/scout.md`)
+1. Verify bootstrap completed (check for `.claude/agents/scout.md`) - already done in Step 0
 2. Run the discovery agent:
 
 ```python
@@ -194,18 +233,18 @@ rm -rf "${TMPDIR:-/tmp}/beads-orchestration-setup"
 
 ## What This Creates
 
-- **Beads CLI** for git-native task tracking (one bead = one branch = one task)
-- **Core agents**: scout, detective, architect, scribe, code-reviewer
+- **Beads CLI** for git-native task tracking (one bead = one worktree = one task)
+- **Core agents**: scout, detective, architect, scribe, code-reviewer (all run via Claude Task)
 - **Discovery agent**: Auto-detects tech stack and creates specialized supervisors
 - **Hooks**: Enforce orchestrator discipline, code review gates, concise responses
-- **Branch-per-task workflow**: Parallel development with automated merge conflict handling
+- **Worktree-per-task workflow**: Isolated development in `.worktrees/bd-{BEAD_ID}/`
 
-**With `--claude-only` (default):**
-- All agents run via Claude Task() - no external dependencies
+**With `--with-kanban-ui`:**
+- Worktrees created via API (localhost:3008) with git fallback
+- Requires [Beads Kanban UI](https://github.com/AvivK5498/Beads-Kanban-UI) running
 
-**With external providers:**
-- MCP Provider Delegator enables Codex→Gemini→Claude fallback chain
-- Additional enforcement hooks for provider delegation
+**Without `--with-kanban-ui`:**
+- Worktrees created via raw git commands
 
 ## Epic Workflow (Cross-Domain Features)
 
@@ -229,9 +268,9 @@ For features requiring multiple supervisors (e.g., DB + API + Frontend), use the
    bd create "API endpoints" -d "..." --parent {EPIC_ID} --deps BD-001.1  # BD-001.2
    bd create "Frontend" -d "..." --parent {EPIC_ID} --deps BD-001.2       # BD-001.3
    ```
-5. **Dispatch sequentially**: Use `bd ready` to find unblocked tasks
-6. **Epic-level code review**: After all children complete
-7. **Merge**: `git merge bd-{EPIC_ID}` then `bd close {EPIC_ID}`
+5. **Dispatch sequentially**: Use `bd ready` to find unblocked tasks (each child gets own worktree)
+6. **User merges each PR**: Wait for child's PR to merge before dispatching next
+7. **Close epic**: `bd close {EPIC_ID}` after all children merged
 
 ### Design Docs
 
@@ -246,19 +285,12 @@ Design docs ensure consistency across epic children:
 ### Hooks Enforce Epic Workflow
 
 - **enforce-sequential-dispatch.sh**: Blocks dispatch if task has unresolved blockers
-- **enforce-bead-for-supervisor.sh**: Requires `EPIC_BRANCH` for child tasks
-- **validate-completion.sh**: Epic children skip per-task code review (review at epic level)
+- **enforce-bead-for-supervisor.sh**: Requires BEAD_ID for all supervisors
+- **validate-completion.sh**: Verifies worktree, push, bead status before supervisor completes
 
 ## Requirements
 
-**Claude only mode (default):**
-- **beads CLI**: Installed automatically (or manually via brew/npm/go)
-- **uv**: Python package manager (only if using external providers)
-
-**External providers mode:**
-- **Codex CLI**: `codex login` for authentication (primary provider)
-- **Gemini CLI**: Optional fallback when Codex hits rate limits
-- **uv**: Python package manager for MCP server
+- **beads CLI**: Installed automatically by bootstrap (via brew, npm, or go)
 
 ## More Information
 

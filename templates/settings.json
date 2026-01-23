@@ -9,7 +9,6 @@
       {
         "matcher": "Task",
         "hooks": [
-          {"type": "command", "command": ".claude/hooks/enforce-codex-delegation.sh"},
           {"type": "command", "command": ".claude/hooks/enforce-bead-for-supervisor.sh"},
           {"type": "command", "command": ".claude/hooks/remind-inprogress.sh"},
           {"type": "command", "command": ".claude/hooks/inject-discipline-reminder.sh"}

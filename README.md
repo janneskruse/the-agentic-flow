@@ -54,17 +54,36 @@ The skill walks you through setup, then creates tech-specific supervisors based 
        ┌───────────┼───────────┐
        ▼           ▼           ▼
   ┌─────────┐ ┌─────────┐ ┌─────────┐
-  │ react-  │ │ python- │ │ worker- │
+  │ react-  │ │ python- │ │ nextjs- │
   │supervisor│ │supervisor│ │supervisor│
   └────┬────┘ └────┬────┘ └────┬────┘
        │           │           │
-   bd-BD-001   bd-BD-002   bd-BD-003
-   (branch)    (branch)    (branch)
+  .worktrees/ .worktrees/ .worktrees/
+  bd-BD-001   bd-BD-002   bd-BD-003
 ```
 
-**Orchestrator:** Investigates the issue, identifies root cause, manages task lifecycle, delegates with specific fix instructions.
+**Orchestrator:** Investigates the issue, identifies root cause, logs findings to bead, delegates with brief fix instructions.
 
-**Supervisors:** Execute the fix confidently on isolated branches. Created by discovery agent based on your tech stack.
+**Supervisors:** Read bead comments for context, create isolated worktrees, execute the fix confidently. Created by discovery agent based on your tech stack.
+
+## Worktree Workflow
+
+Each task gets its own isolated worktree at `.worktrees/bd-{BEAD_ID}/`. This keeps the main directory clean and allows parallel work without branch conflicts.
+
+```bash
+# Supervisor creates worktree via API
+curl -X POST http://localhost:3008/api/git/worktree \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path": "...", "bead_id": "BD-001"}'
+
+# Work happens in worktree
+cd .worktrees/bd-BD-001/
+# ... make changes ...
+git add -A && git commit -m "..."
+git push origin bd-BD-001
+
+# User merges via PR in UI
+```
 
 ## Automatic Task Management
 
@@ -75,7 +94,7 @@ bd create "Add auth" -d "JWT-based authentication"  # Orchestrator creates
 bd update BD-001 --status in_progress               # Supervisor marks started
 bd comment BD-001 "Completed login endpoint"        # Progress logged
 bd update BD-001 --status inreview                  # Supervisor marks done
-bd close BD-001                                     # Orchestrator closes
+bd close BD-001                                     # User closes after merge
 ```
 
 ## Delegation Format
@@ -85,15 +104,14 @@ Task(
   subagent_type="react-supervisor",
   prompt="""BEAD_ID: BD-001
 
-Problem: Login button doesn't redirect after success
-Root cause: src/components/Login.tsx:45 - missing router.push()
-Fix: Add router.push('/dashboard') after successful auth"""
+Fix: Add router.push('/dashboard') after successful auth
+(Supervisor reads bead comments for full investigation context)"""
 )
 ```
 
 ## Epics (Cross-Domain Features)
 
-When a feature spans multiple supervisors (e.g., DB + API + Frontend), the orchestrator automatically creates an epic with child tasks and manages dependencies. Children work on a shared epic branch and are dispatched sequentially.
+When a feature spans multiple supervisors (e.g., DB + API + Frontend), the orchestrator creates an epic with child tasks and manages dependencies. Each child gets its own worktree and is dispatched sequentially after the previous child's PR is merged.
 
 You can also explicitly request an epic: *"Add user profiles and create an epic for it."*
 
@@ -103,11 +121,12 @@ You can also explicitly request an epic: *"Add user profiles and create an epic 
 .claude/
 ├── agents/           # Supervisors (discovery creates tech-specific ones)
 ├── hooks/            # Workflow enforcement
-├── skills/           # subagents-discipline
+├── skills/           # subagents-discipline, react-best-practices
 └── settings.json
 CLAUDE.md             # Orchestrator instructions
 .beads/               # Task database
 .mcp.json             # Provider delegator config (External Providers mode)
+.worktrees/           # Isolated worktrees for each task (created dynamically)
 ```
 
 ## Hooks
@@ -116,17 +135,15 @@ CLAUDE.md             # Orchestrator instructions
 |------|---------|
 | `block-orchestrator-tools.sh` | Orchestrator can't Edit/Write |
 | `enforce-bead-for-supervisor.sh` | Supervisors need BEAD_ID |
-| `enforce-branch-before-edit.sh` | Must be on feature branch to edit |
+| `enforce-branch-before-edit.sh` | Must be in worktree to edit (not main) |
 | `enforce-sequential-dispatch.sh` | Blocks epic children with unresolved deps |
-| `block-branch-for-epic-child.sh` | Epic children use shared branch |
 | `validate-epic-close.sh` | Can't close epic with open children |
-| `enforce-codex-delegation.sh` | Read-only agents use provider_delegator (External mode) |
 | `inject-discipline-reminder.sh` | Injects discipline skill reminder |
 | `remind-inprogress.sh` | Warns about in-progress beads |
-| `validate-completion.sh` | Completion format requirements |
+| `validate-completion.sh` | Verifies worktree, push, bead status |
 | `enforce-concise-response.sh` | Limits response verbosity |
 | `clarify-vague-request.sh` | Prompts for clarification |
-| `session-start.sh` | Session initialization |
+| `session-start.sh` | Shows task status, cleanup suggestions, open PRs |
 
 ## License
 

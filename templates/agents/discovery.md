@@ -223,7 +223,7 @@ tools: *
 
 ```
 BEAD {BEAD_ID} COMPLETE
-Branch: bd-{BEAD_ID}
+Worktree: .worktrees/bd-{BEAD_ID}
 Files: [filename1, filename2]
 Tests: pass
 Summary: [1 sentence max]

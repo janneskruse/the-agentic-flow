@@ -85,31 +85,35 @@ bd epic status ID                                     # Epic completion status
 ```
 → WRONG. Cross-domain = Epic. No exceptions.
 
-## Standalone Workflow (Single Supervisor)
+## Worktree Workflow
+
+Supervisors work in isolated worktrees (`.worktrees/bd-{BEAD_ID}/`), not branches on main.
+
+### Standalone Workflow (Single Supervisor)
 
 For simple tasks handled by one supervisor:
 
 1. Investigate the issue (Grep, Read)
 2. Create bead: `bd create "Task" -d "Details"`
 3. Dispatch with fix: `Task(subagent_type="<tech>-supervisor", prompt="BEAD_ID: {id}\n\n{problem + fix}")`
-4. Supervisor works on `bd-{ID}` branch, marks `inreview` when done
-5. Merge: `git checkout main && git merge bd-{ID}`
-6. Close: `bd close {ID}`
+4. Supervisor creates worktree, implements, pushes, marks `inreview` when done
+5. **User merges via UI** (Create PR → wait for CI → Merge PR → Clean Up)
+6. Close: `bd close {ID}` (or auto-close on cleanup)
 
-## Epic Workflow (Cross-Domain Features)
+### Epic Workflow (Cross-Domain Features)
 
 For features requiring multiple supervisors (e.g., DB + API + Frontend):
 
-### 1. Create Epic
+**Note:** Epics are organizational only - no git branch/worktree for epics. Each child gets its own worktree.
+
+#### 1. Create Epic
 
 ```bash
 bd create "Feature name" -d "Description" --type epic
 # Returns: {EPIC_ID}
-
-git checkout -b bd-{EPIC_ID}
 ```
 
-### 2. Create Design Doc (if needed)
+#### 2. Create Design Doc (if needed)
 
 If the epic involves cross-domain work, dispatch architect FIRST:
 
@@ -133,7 +137,7 @@ Then link it to the epic:
 bd update {EPIC_ID} --design ".designs/{EPIC_ID}.md"
 ```
 
-### 3. Create Children with Dependencies
+#### 3. Create Children with Dependencies
 
 ```bash
 # First task (no dependencies)
@@ -149,7 +153,7 @@ bd create "Create frontend" -d "..." --parent {EPIC_ID} --deps "{EPIC_ID}.2"
 # Returns: {EPIC_ID}.3
 ```
 
-### 4. Dispatch Sequentially
+#### 4. Dispatch Sequentially
 
 Use `bd ready` to find unblocked tasks:
 
@@ -162,21 +166,61 @@ Dispatch format for epic children:
 Task(
   subagent_type="{appropriate}-supervisor",
   prompt="BEAD_ID: {CHILD_ID}
-EPIC_BRANCH: bd-{EPIC_ID}
 EPIC_ID: {EPIC_ID}
 
 {task description with fix}"
 )
 ```
 
-**WAIT for each child to complete before dispatching next.**
+**WAIT for each child to complete AND be merged before dispatching next.**
 
-### 5. Merge and Close
+Each child:
+1. Creates its own worktree: `.worktrees/bd-{CHILD_ID}/`
+2. Implements the fix
+3. Pushes to remote
+4. Marks `inreview`
+
+User merges each child's PR before the next can start (dependencies enforce this).
+
+#### 5. Close Epic
+
+After all children are merged:
+```bash
+bd close {EPIC_ID}  # Closes epic and all children
+```
+
+## Supervisor Phase 0 (Worktree Setup)
+
+Supervisors start by creating a worktree:
 
 ```bash
-git checkout main
-git merge bd-{EPIC_ID}
-bd close {EPIC_ID}  # Closes epic and all children
+# Idempotent - returns existing worktree if it exists
+curl -X POST http://localhost:3008/api/git/worktree \
+  -H "Content-Type: application/json" \
+  -d '{"repo_path": "'$(git rev-parse --show-toplevel)'", "bead_id": "{BEAD_ID}"}'
+
+# Change to worktree
+cd $(git rev-parse --show-toplevel)/.worktrees/bd-{BEAD_ID}
+
+# Mark in progress
+bd update {BEAD_ID} --status in_progress
+```
+
+## Supervisor Completion Format
+
+```
+BEAD {BEAD_ID} COMPLETE
+Worktree: .worktrees/bd-{BEAD_ID}
+Files: [names only]
+Tests: pass
+Summary: [1 sentence]
+```
+
+Then:
+```bash
+git add -A && git commit -m "..."
+git push origin bd-{BEAD_ID}
+bd update {BEAD_ID} --status inreview
 ```
 
 ## Design Doc Guidelines

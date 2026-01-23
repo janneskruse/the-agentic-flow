@@ -16,6 +16,49 @@ if ! command -v bd &>/dev/null; then
   exit 0
 fi
 
+# ============================================================
+# Dirty Parent Check - Warn if main directory has uncommitted changes
+# ============================================================
+REPO_ROOT=$(git -C "$CLAUDE_PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null)
+if [[ -n "$REPO_ROOT" ]]; then
+  DIRTY=$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null)
+  if [[ -n "$DIRTY" ]]; then
+    echo "⚠️  WARNING: Main directory has uncommitted changes."
+    echo "   Agents should only work in .worktrees/"
+    echo ""
+  fi
+fi
+
+# ============================================================
+# Auto-cleanup: Detect merged PRs and cleanup worktrees
+# ============================================================
+WORKTREES_DIR="$CLAUDE_PROJECT_DIR/.worktrees"
+if [[ -d "$WORKTREES_DIR" ]]; then
+  for worktree in $(git -C "$REPO_ROOT" worktree list --porcelain 2>/dev/null | grep "^worktree.*\.worktrees/bd-" | awk '{print $2}'); do
+    BEAD_ID=$(basename "$worktree" | sed 's/bd-//')
+    BRANCH=$(basename "$worktree")
+    
+    # Check if branch was merged to main
+    if git -C "$REPO_ROOT" branch --merged main 2>/dev/null | grep -q "$BRANCH"; then
+      echo "✓ $BRANCH was merged - consider cleaning up"
+      echo "   Run: git worktree remove \"$worktree\" && bd close \"$BEAD_ID\""
+      echo ""
+    fi
+  done
+fi
+
+# ============================================================
+# Open PR Reminder
+# ============================================================
+if command -v gh &>/dev/null; then
+  OPEN_PRS=$(gh pr list --author "@me" --state open --json number,title,headRefName 2>/dev/null)
+  if [[ -n "$OPEN_PRS" && "$OPEN_PRS" != "[]" ]]; then
+    echo "📋 You have open PRs:"
+    echo "$OPEN_PRS" | jq -r '.[] | "  #\(.number) \(.title) (\(.headRefName))"' 2>/dev/null
+    echo ""
+  fi
+fi
+
 echo ""
 echo "## Task Status"
 echo ""
