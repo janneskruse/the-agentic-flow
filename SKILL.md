@@ -19,17 +19,9 @@ This skill bootstraps a complete multi-agent workflow where:
 
 Each task gets its own worktree at `.worktrees/bd-{BEAD_ID}/`, keeping main clean and enabling parallel work.
 
-## Recommended: Beads Kanban UI
+## Beads Kanban UI
 
-For the best experience, use this orchestration with **[Beads Kanban UI](https://github.com/AvivK5498/Beads-Kanban-UI)** - a visual task management interface that provides:
-
-- Kanban board for beads (tasks, epics, subtasks)
-- Dependency visualization
-- Worktree management via API
-- Branch status tracking
-- PR integration
-
-The setup wizard will ask if you're using the Kanban UI to configure the optimal worktree workflow.
+The setup will auto-detect [Beads Kanban UI](https://github.com/AvivK5498/Beads-Kanban-UI) and configure accordingly. If not found, you'll be offered to install it.
 
 ---
 
@@ -74,31 +66,46 @@ ls .claude/agents/scout.md 2>/dev/null && echo "BOOTSTRAP_COMPLETE" || echo "FRE
 ## Step 1: Get Project Info (Fresh Setup Only)
 
 <critical-step1>
-**YOU MUST GET PROJECT INFO AND ASK THE KANBAN UI QUESTION BEFORE PROCEEDING TO STEP 2.**
+**YOU MUST GET PROJECT INFO AND DETECT/ASK ABOUT KANBAN UI BEFORE PROCEEDING TO STEP 2.**
 
 1. **Project directory**: Where to install (default: current working directory)
 2. **Project name**: For agent templates (will auto-infer from package.json/pyproject.toml if not provided)
-3. **Kanban UI**: Ask if using Beads Kanban UI
+3. **Kanban UI**: Auto-detect, or ask the user to install
 </critical-step1>
 
 ### 1.1 Get Project Directory and Name
 
 Ask the user or auto-detect from package.json/pyproject.toml.
 
-### 1.2 MANDATORY: Ask Kanban UI Question
+### 1.2 MANDATORY: Detect or Install Kanban UI
 
-<mandatory-question>
-**YOU MUST CALL AskUserQuestion BEFORE RUNNING BOOTSTRAP.**
+<mandatory-detection>
+**Run these checks in order:**
+
+```bash
+# Check 1: Is the bead-kanban command installed?
+which bead-kanban 2>/dev/null && echo "KANBAN_INSTALLED" || echo "KANBAN_NOT_FOUND"
+```
+
+```bash
+# Check 2: Is the Kanban UI server running?
+curl -s --max-time 2 http://localhost:3008/api/health 2>/dev/null && echo "KANBAN_RUNNING" || echo "KANBAN_NOT_RUNNING"
+```
+
+**If KANBAN_INSTALLED or KANBAN_RUNNING** → Use `--with-kanban-ui` flag. Tell the user:
+> Detected Beads Kanban UI. Configuring worktree management via API.
+
+**If KANBAN_NOT_FOUND** → Ask the user:
 
 ```
 AskUserQuestion(
   questions=[
     {
-      "question": "Are you using Beads Kanban UI for visual task management?",
+      "question": "Beads Kanban UI not detected. It provides a visual kanban board for tasks, dependency graphs, and worktree management via API. Install it?",
       "header": "Kanban UI",
       "options": [
-        {"label": "Yes, using Beads Kanban UI (Recommended)", "description": "Worktrees created via API (localhost:3008) with git fallback. Get it at: github.com/AvivK5498/Beads-Kanban-UI"},
-        {"label": "No, git worktrees only", "description": "Worktrees created via git commands directly. No UI dependency."}
+        {"label": "Yes, install it (Recommended)", "description": "Runs: npm install -g beads-kanban-ui. Visual task board at localhost:3008."},
+        {"label": "Skip", "description": "Use git worktrees directly. No UI. You can install later."}
       ],
       "multiSelect": false
     }
@@ -107,11 +114,11 @@ AskUserQuestion(
 ```
 
 **After user answers:**
-- If "Yes, using Beads Kanban UI" → use `--with-kanban-ui` flag in bootstrap
-- If "No, git worktrees only" → do NOT use `--with-kanban-ui` flag
-</mandatory-question>
+- If "Yes, install it" → Run `npm install -g beads-kanban-ui`, then use `--with-kanban-ui` flag
+- If "Skip" → do NOT use `--with-kanban-ui` flag
+</mandatory-detection>
 
-**DO NOT proceed to Step 2 until you have the Kanban UI choice from the user.**
+**DO NOT proceed to Step 2 until Kanban UI detection/choice is resolved.**
 
 ---
 
