@@ -2,7 +2,7 @@
 #
 # PostToolUse:Bash (async) - Capture knowledge from bd comment commands
 #
-# Detects: bd comment {BEAD_ID} "INVESTIGATION: ..." or "LEARNED: ..."
+# Detects: bd comment {BEAD_ID} "LEARNED: ..."
 # Extracts knowledge entries into .beads/memory/knowledge.jsonl
 #
 
@@ -18,7 +18,7 @@ COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
 
 # Only process bd comment commands containing knowledge markers
 echo "$COMMAND" | grep -qE 'bd\s+comment\s+' || exit 0
-echo "$COMMAND" | grep -qE '(INVESTIGATION:|LEARNED:)' || exit 0
+echo "$COMMAND" | grep -qE 'LEARNED:' || exit 0
 
 # Extract BEAD_ID (argument after "bd comment")
 BEAD_ID=$(echo "$COMMAND" | sed -E 's/.*bd[[:space:]]+comment[[:space:]]+([A-Za-z0-9._-]+)[[:space:]]+.*/\1/')
@@ -28,13 +28,10 @@ BEAD_ID=$(echo "$COMMAND" | sed -E 's/.*bd[[:space:]]+comment[[:space:]]+([A-Za-
 COMMENT_BODY=$(echo "$COMMAND" | sed -E 's/.*bd[[:space:]]+comment[[:space:]]+[A-Za-z0-9._-]+[[:space:]]+["'\'']//' | sed -E 's/["'\''][[:space:]]*$//' | head -c 4096)
 [[ -z "$COMMENT_BODY" ]] && exit 0
 
-# Determine type and extract content
+# Determine type and extract content (voluntary LEARNED only)
 TYPE=""
 CONTENT=""
-if echo "$COMMENT_BODY" | grep -q "INVESTIGATION:"; then
-  TYPE="investigation"
-  CONTENT=$(echo "$COMMENT_BODY" | sed 's/.*INVESTIGATION:[[:space:]]*//' | head -c 2048)
-elif echo "$COMMENT_BODY" | grep -q "LEARNED:"; then
+if echo "$COMMENT_BODY" | grep -q "LEARNED:"; then
   TYPE="learned"
   CONTENT=$(echo "$COMMENT_BODY" | sed 's/.*LEARNED:[[:space:]]*//' | head -c 2048)
 fi

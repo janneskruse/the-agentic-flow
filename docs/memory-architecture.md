@@ -2,7 +2,7 @@
 
 ## Overview
 
-Beads orchestration includes a passive knowledge capture system. As agents work, their insights are automatically extracted into a persistent knowledge base that grows across sessions.
+Beads orchestration includes a passive knowledge capture system. As agents work, their insights can be voluntarily recorded into a persistent knowledge base that grows across sessions.
 
 ## How It Works
 
@@ -10,24 +10,23 @@ Beads orchestration includes a passive knowledge capture system. As agents work,
 Agent runs bd comment BD-001 "LEARNED: ..."
        |
        v
-PostToolUse hook (memory-capture.sh) detects LEARNED: or INVESTIGATION: prefix
+PostToolUse hook (memory-capture.sh) detects LEARNED: prefix
        |
        v
 Extracts structured entry into .beads/memory/knowledge.jsonl
        |
        v
 Next session: session-start.sh surfaces recent knowledge
-              Orchestrator searches before re-investigating
+              Agents search when investigating unfamiliar code
 ```
 
 ## Write Path
 
-Agents write knowledge through the existing `bd comment` interface with two recognized prefixes:
+Agents write knowledge through the existing `bd comment` interface:
 
 | Prefix | Who writes | Purpose |
 |--------|-----------|---------|
-| `INVESTIGATION:` | Orchestrator | Root cause analysis, file:line pointers, fix strategy |
-| `LEARNED:` | Supervisors | Conventions, gotchas, patterns discovered during implementation |
+| `LEARNED:` | Any agent (voluntary) | Conventions, gotchas, patterns discovered during implementation |
 
 Example:
 ```bash
@@ -47,7 +46,7 @@ An async `PostToolUse` hook on the Bash tool intercepts these commands and extra
 | Field | Description |
 |-------|-------------|
 | `key` | Auto-generated slug from type + first 60 chars of content |
-| `type` | `learned` or `investigation` |
+| `type` | `learned` |
 | `content` | The raw insight text |
 | `source` | `orchestrator` or `supervisor` (detected from CWD) |
 | `tags` | Auto-detected from content via keyword scan |
@@ -66,7 +65,6 @@ Same key = latest entry wins (deduplication on read).
 ## Recent Knowledge (12 entries)
 
   [LEARN] MenuBarExtra popup closes on NSWindow activate. Use activates:false.  (supervisor)
-  [INVES] Root cause: SparkleAdapter.swift:45 - nil SUFeedURL crashes XMLParser  (orchestrator)
 
   Search: .beads/memory/recall.sh "keyword"
 ```
@@ -81,9 +79,9 @@ Same key = latest entry wins (deduplication on read).
 .beads/memory/recall.sh "keyword" --all            # Include archived entries
 ```
 
-## Enforcement
+## Voluntary Contribution
 
-The `SubagentStop` hook (`validate-completion.sh`) blocks supervisors from completing without a `LEARNED:` comment. This ensures every implementation task contributes to the knowledge base.
+Knowledge capture is opt-in. Agents are encouraged to log insights when they discover something worth remembering, but it is not enforced. The `SubagentStop` hook verifies worktree state, push status, and bead status — not knowledge contributions.
 
 Exempt: `worker-supervisor` (low-level tasks that don't produce architectural insight).
 
@@ -102,7 +100,8 @@ When `knowledge.jsonl` exceeds 1,000 lines, the oldest 500 are moved to `knowled
 .claude/
   hooks/
     memory-capture.sh        # PostToolUse async hook (captures entries)
-    validate-completion.sh   # SubagentStop hook (enforces LEARNED:)
+    validate-completion.sh   # SubagentStop hook (verifies work completion)
+    log-dispatch-prompt.sh   # PostToolUse async hook (logs dispatch prompts)
     session-start.sh         # SessionStart hook (surfaces knowledge)
 ```
 
@@ -111,5 +110,5 @@ When `knowledge.jsonl` exceeds 1,000 lines, the oldest 500 are moved to `knowled
 - **JSONL over SQLite**: Simpler, append-only, human-readable, git-trackable
 - **grep + jq over embeddings**: Sufficient for project-scoped knowledge; no external dependencies
 - **Passive capture via hooks**: Zero friction -- agents use `bd comment` as they already do
-- **Hard enforcement**: Supervisors must contribute; knowledge base grows with every task
+- **Voluntary contribution**: Knowledge base grows organically from genuine insights, not forced boilerplate
 - **Same key = latest wins**: No explicit update/close lifecycle; knowledge self-corrects over time

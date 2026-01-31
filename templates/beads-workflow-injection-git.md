@@ -71,14 +71,11 @@ WARNING: You will be BLOCKED if you skip any step. Execute ALL in order:
    git push origin bd-{BEAD_ID}
    ```
 
-3. **Log what you learned (REQUIRED - you will be blocked without this):**
+3. **Optionally log learnings:**
    ```bash
-   bd comment {BEAD_ID} "LEARNED: [key technical insight from this task]"
+   bd comment {BEAD_ID} "LEARNED: [key technical insight]"
    ```
-   Record a convention, gotcha, or pattern you discovered. Examples:
-   - `"LEARNED: MenuBarExtra popup closes on NSWindow activate. Use activates:false."`
-   - `"LEARNED: All source adapters must handle nil SUFeedURL gracefully."`
-   - `"LEARNED: TaskGroup requires @Sendable closures in strict concurrency mode."`
+   If you discovered a gotcha or pattern worth remembering, log it. Not required.
 
 4. **Leave completion comment:**
    ```bash
@@ -99,7 +96,7 @@ WARNING: You will be BLOCKED if you skip any step. Execute ALL in order:
    Summary: [1 sentence]
    ```
 
-The SubagentStop hook verifies: worktree exists, no uncommitted changes, pushed to remote, bead status updated, LEARNED comment exists.
+The SubagentStop hook verifies: worktree exists, no uncommitted changes, pushed to remote, bead status updated.
 </on-completion>
 
 <banned>

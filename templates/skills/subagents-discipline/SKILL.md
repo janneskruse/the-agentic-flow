@@ -7,22 +7,22 @@ description: Core engineering principles for implementation tasks
 
 ## Rule 0: Read the Bead First
 
-Before implementing anything, **read the bead comments** for investigation context:
+Before implementing anything, **read the bead comments** for context:
 
 ```bash
 bd show {BEAD_ID}
 bd comments {BEAD_ID}
 ```
 
-The orchestrator has already:
-- Investigated the issue using Grep, Read, Glob
-- Found the root cause (specific file, function, line)
-- Documented related files that may need changes
-- Noted gotchas and edge cases
+The orchestrator's dispatch prompt is automatically logged as a DISPATCH comment on the bead. This contains:
+- The investigation findings
+- Root cause analysis (file, function, line)
+- Related files that may need changes
+- Gotchas and edge cases
 
 **Use this context.** Don't re-investigate. The comments contain everything you need to implement confidently.
 
-If no investigation comments exist, ask the orchestrator to provide context before proceeding.
+If no dispatch or context comments exist, ask the orchestrator to provide context before proceeding.
 
 ---
 
@@ -47,17 +47,41 @@ WITH looking first:
   Result: Works
 ```
 
-## Rule 2: Test Both Levels
+## Rule 2: Test Functionally (Close the Loop)
 
-**Component test** catches: logic bugs, edge cases, type errors
-**Feature test** catches: integration bugs, auth issues, data flow problems
+**Principle: Optimize for the fastest way to verify your work actually works.**
 
-| You built | Component test | Feature test |
-|-----------|----------------|--------------|
-| API endpoint | curl returns 200 | UI calls API, displays result |
-| Database change | Migration runs | App reads/writes correctly |
-| Frontend component | Renders, no errors | User can see and interact |
-| Full-stack feature | Each piece works alone | End-to-end flow works |
+| You built | Fast verification | Slower alternative |
+|-----------|------------------|--------------------|
+| API endpoint | `curl` the endpoint, check response | Write integration test |
+| Database change | Run migration, query the result | Write migration test |
+| Frontend component | Load in browser, interact with it | Write component test |
+| CLI tool | Run the command, check output | Write unit test |
+| Config change | Restart service, verify behavior | N/A — just verify |
+
+**Two strategies:**
+
+1. **User Journey Tests** — Test actual behavior as a user experiences it:
+   ```bash
+   # API: curl with real data
+   curl -X POST localhost:3000/api/users -d '{"name":"test"}' -H "Content-Type: application/json"
+
+   # CLI: run the command
+   bd create "Test" -d "Testing" && bd list
+
+   # Error case: curl with invalid auth
+   curl -X POST localhost:3000/api/users -H "Authorization: Bearer invalid"
+   ```
+
+2. **Component Tests** — Supplement for regression prevention when fast verification isn't possible:
+   - Complex logic with many edge cases
+   - Code that runs in environments you can't easily replicate
+   - Shared libraries used by multiple consumers
+
+**"Close the Loop" principle:** Run the actual thing. Verify it works. Check error cases.
+
+Good: "Curled endpoint with invalid auth, got 401 as expected"
+Bad: "Wrote tests, they compile"
 
 ## Rule 3: Use Your Tools
 
@@ -66,6 +90,21 @@ Before claiming you can't fully test:
 1. **Check what MCP servers you have access to** - list available tools
 2. **If any tool can help verify the feature works**, use it
 3. **Be resourceful** - browser automation, database inspection, API testing tools
+
+## Rule 4: Log Your Approach (Optional)
+
+If you deviated from the orchestrator's suggestion, found a better path, or made a choice future maintainers might question:
+
+```bash
+bd comment {BEAD_ID} "APPROACH: Used X instead of Y because Z"
+```
+
+When to log:
+- Deviated from the suggested fix
+- Multiple valid solutions, chose one for a specific reason
+- Future maintainers might question the approach
+
+Skip if the code is self-explanatory. This is not enforced.
 
 ---
 
