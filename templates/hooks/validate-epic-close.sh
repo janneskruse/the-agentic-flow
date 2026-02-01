@@ -25,7 +25,7 @@ if echo "$COMMAND" | grep -qE '\-\-force'; then
 fi
 
 # Extract the ID being closed (handles: bd close ID, bd close ID && ..., etc.)
-CLOSE_ID=$(echo "$COMMAND" | sed -E 's/.*bd\s+close\s+([A-Za-z0-9._-]+).*/\1/')
+CLOSE_ID=$(echo "$COMMAND" | sed -E 's/.*bd[[:space:]]+close[[:space:]]+([A-Za-z0-9._-]+).*/\1/')
 
 if [ -z "$CLOSE_ID" ]; then
   exit 0
@@ -55,23 +55,23 @@ EOF
 fi
 
 # === CHECK 2: Epic children validation ===
-# Check if this is an epic by looking for children
-CHILDREN=$(bd show "$CLOSE_ID" --json 2>/dev/null | jq -r '.[0].children // empty' 2>/dev/null || echo "")
+# Check if this is an epic by looking at issue_type
+ISSUE_TYPE=$(bd show "$CLOSE_ID" --json 2>/dev/null | jq -r '.[0].issue_type // ""' 2>/dev/null || echo "")
 
-if [ -z "$CHILDREN" ] || [ "$CHILDREN" = "null" ]; then
-  # Not an epic or no children, allow close
+if [ "$ISSUE_TYPE" != "epic" ]; then
+  # Not an epic, allow close
   exit 0
 fi
 
 # This is an epic - check if all children are complete
 INCOMPLETE=$(bd list --json 2>/dev/null | jq -r --arg epic "$CLOSE_ID" '
-  [.[] | select(.parent == $epic and .status != "done" and .status != "closed")] | length
+  [.[] | select((.id | startswith($epic + ".")) and .status != "done" and .status != "closed")] | length
 ' 2>/dev/null || echo "0")
 
 if [ "$INCOMPLETE" != "0" ] && [ "$INCOMPLETE" != "" ]; then
   # Get list of incomplete children for the error message
   INCOMPLETE_LIST=$(bd list --json 2>/dev/null | jq -r --arg epic "$CLOSE_ID" '
-    [.[] | select(.parent == $epic and .status != "done" and .status != "closed")] | .[] | "\(.id) (\(.status))"
+    [.[] | select((.id | startswith($epic + ".")) and .status != "done" and .status != "closed")] | .[] | "\(.id) (\(.status))"
   ' 2>/dev/null | tr '\n' ', ' | sed 's/,$//')
 
   cat << EOF
