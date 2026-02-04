@@ -189,7 +189,11 @@ Tell the user:
 
 ### 4.1: Check User's Discovery Preference
 
-Based on Step 0.5 answers:
+<post-restart-check>
+**If you (the agent) do not know the user's preference yet (e.g., after restart):**
+1. Ask: "I'm ready to setup the project. Do you have a guidance document, or should I scan the repo?"
+2. Wait for answer.
+</post-restart-check>
 
 **If user provided guidance document:**
 1. Read the guidance document they specified
@@ -205,12 +209,12 @@ Based on Step 0.5 answers:
 4. Create minimal supervisors
 5. Tell user: "Created supervisors based on README: [list]"
 
-**If user said "scan the repo":**
-1. Run the discovery agent:
+**If user said "scan the repo" (or "yes", "go ahead"):**
+1. Run the discovery agent with the **required confirmation keyword**:
    ```python
    Task(
        subagent_type="discovery",
-       prompt="Detect tech stack using token-efficient scanning. Budget: 5k tokens max."
+       prompt="User confirmed: scan the repo. Detect tech stack using token-efficient scanning. Budget: 5k tokens max."
    )
    ```
 

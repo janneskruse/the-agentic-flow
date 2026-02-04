@@ -19,8 +19,7 @@ PROMPT=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin
 # Check if prompt contains user confirmation keywords
 # These keywords should be in the prompt if user answered the SKILL.md questions
 if [[ "$PROMPT" == *"user confirmed"* ]] || \
-   [[ "$PROMPT" == *"scan the repo"* ]] || \
-   [[ "$PROMPT" == *"Budget: 5k tokens max"* ]]; then
+   [[ "$PROMPT" == *"scan the repo"* ]]; then
   # User confirmed, allow discovery
   exit 0
 fi
