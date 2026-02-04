@@ -58,7 +58,7 @@ def infer_project_name(project_dir: Path) -> str:
     package_json = project_dir / "package.json"
     if package_json.exists():
         try:
-            data = json.loads(package_json.read_text())
+            data = json.loads(package_json.read_text(encoding="utf-8"))
             if name := data.get("name"):
                 return name.replace("-", " ").replace("_", " ").title()
         except (json.JSONDecodeError, KeyError):
@@ -69,7 +69,7 @@ def infer_project_name(project_dir: Path) -> str:
         pyproject = project_dir / "pyproject.toml"
         if pyproject.exists():
             try:
-                data = tomllib.loads(pyproject.read_text())
+                data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
                 if name := data.get("project", {}).get("name"):
                     return name.replace("-", " ").replace("_", " ").title()
                 if name := data.get("tool", {}).get("poetry", {}).get("name"):
@@ -81,7 +81,7 @@ def infer_project_name(project_dir: Path) -> str:
         cargo = project_dir / "Cargo.toml"
         if cargo.exists():
             try:
-                data = tomllib.loads(cargo.read_text())
+                data = tomllib.loads(cargo.read_text(encoding="utf-8"))
                 if name := data.get("package", {}).get("name"):
                     return name.replace("-", " ").replace("_", " ").title()
             except Exception:
@@ -91,7 +91,7 @@ def infer_project_name(project_dir: Path) -> str:
     go_mod = project_dir / "go.mod"
     if go_mod.exists():
         try:
-            content = go_mod.read_text()
+            content = go_mod.read_text(encoding="utf-8")
             for line in content.splitlines():
                 if line.startswith("module "):
                     module_path = line.split()[1]
@@ -117,7 +117,7 @@ def replace_placeholders(content: str, replacements: dict) -> str:
 
 def copy_and_replace(source: Path, dest: Path, replacements: dict) -> None:
     """Copy file and replace placeholders."""
-    content = source.read_text()
+    content = source.read_text(encoding="utf-8")
     updated = replace_placeholders(content, replacements)
     dest.parent.mkdir(parents=True, exist_ok=True)
     
@@ -126,7 +126,7 @@ def copy_and_replace(source: Path, dest: Path, replacements: dict) -> None:
         with open(dest, "w", newline="\n", encoding="utf-8") as f:
             f.write(updated)
     else:
-        dest.write_text(updated)
+        dest.write_text(updated, encoding="utf-8")
 
     # Preserve executable permissions for shell scripts
     if source.suffix == '.sh':
@@ -346,7 +346,7 @@ def _manual_beads_init(beads_dir: Path):
         "version": "1",
         "mode": "normal"
     }
-    (beads_dir / "config.json").write_text(json.dumps(config, indent=2))
+    (beads_dir / "config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
     print("  - Created .beads manually")
 
 
@@ -573,7 +573,7 @@ def copy_hooks(project_dir: Path, claude_only: bool = False) -> list:
         dest = hooks_dir / hook_file.name
         
         # Ensure LF line endings for shell scripts
-        content = hook_file.read_text()
+        content = hook_file.read_text(encoding="utf-8")
         with open(dest, "w", newline="\n", encoding="utf-8") as f:
             f.write(content)
             
@@ -674,7 +674,7 @@ def setup_gitignore(project_dir: Path, claude_only: bool = False) -> None:
     entries_to_add = [".beads/", ".mcp.json"]
 
     if gitignore_path.exists():
-        content = gitignore_path.read_text()
+        content = gitignore_path.read_text(encoding="utf-8")
         lines = content.splitlines()
 
         # Check which entries are missing
@@ -705,7 +705,7 @@ def setup_gitignore(project_dir: Path, claude_only: bool = False) -> None:
 # MCP config (user-specific paths)
 .mcp.json
 """
-        gitignore_path.write_text(content)
+        gitignore_path.write_text(content, encoding="utf-8")
         print("  - Created .gitignore with .beads/ and .mcp.json")
 
     print("  DONE: .gitignore configured")
@@ -725,7 +725,7 @@ def create_mcp_config(project_dir: Path, venv_python: Path) -> None:
     # Load existing config or start fresh
     if mcp_dest.exists():
         try:
-            existing = json.loads(mcp_dest.read_text())
+            existing = json.loads(mcp_dest.read_text(encoding="utf-8"))
             print("  - Found existing .mcp.json, merging...")
         except json.JSONDecodeError:
             print("  - Warning: Invalid .mcp.json, creating new one")
@@ -747,7 +747,7 @@ def create_mcp_config(project_dir: Path, venv_python: Path) -> None:
         }
     }
 
-    mcp_dest.write_text(json.dumps(existing, indent=2))
+    mcp_dest.write_text(json.dumps(existing, indent=2), encoding="utf-8")
 
     server_count = len(existing["mcpServers"])
     print(f"  - Added provider-delegator to .mcp.json ({server_count} total servers)")
@@ -969,7 +969,7 @@ def get_install_path():
     """Try to find the installation path from the config file."""
     config_file = Path.home() / ".claude" / "the-agentic-flow-path.txt"
     if config_file.exists():
-        return config_file.read_text().strip()
+        return config_file.read_text(encoding="utf-8").strip()
     return None
 
 if __name__ == "__main__":
