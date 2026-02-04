@@ -1,8 +1,8 @@
 {
-  "name": "beads-orchestration",
+  "name": "the-agentic-flow",
   "version": "2.0.0",
   "description": "Multi-agent orchestration for Claude Code with automatic task management",
-  "author": "Aviv Kaplan",
+  "author": "Jannes Kruse",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -1,6 +1,6 @@
 <div align="center">
 
-# THE CLAUDE PROTOCOL
+# THE AGENTIC FLOW (fork from https://github.com/AvivK5498/The-Claude-Protocol)
 
 **Enforcement-first orchestration for Claude Code. Every agent tracked. Every decision logged. Nothing gets lost.**
 
