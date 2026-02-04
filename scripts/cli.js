@@ -10,6 +10,21 @@ const command = args[0];
 const packageDir = path.dirname(__dirname);
 const bootstrapScript = path.join(packageDir, 'bootstrap.py');
 
+function getPythonCommand() {
+  try {
+    execSync('python3 --version', { stdio: 'ignore' });
+    return 'python3';
+  } catch (e) {
+    try {
+      execSync('python --version', { stdio: 'ignore' });
+      return 'python';
+    } catch (e2) {
+      console.error('❌ Python 3 not found. Please install Python from https://python.org');
+      process.exit(1);
+    }
+  }
+}
+
 function showHelp() {
   console.log(`
 the-agentic-flow - Multi-agent orchestration for Claude Code
@@ -38,8 +53,9 @@ function runInstall() {
 
 function runBootstrap() {
   const bootstrapArgs = args.slice(1).join(' ');
+  const pythonCmd = getPythonCommand();
   try {
-    execSync(`python3 "${bootstrapScript}" ${bootstrapArgs}`, { stdio: 'inherit' });
+    execSync(`${pythonCmd} "${bootstrapScript}" ${bootstrapArgs}`, { stdio: 'inherit' });
   } catch (err) {
     process.exit(err.status || 1);
   }

@@ -1,6 +1,6 @@
 {
   "name": "@apapacho/the-agentic-flow",
-  "version": "2.0.2",
+  "version": "2.0.6",
   "description": "Multi-agent orchestration for Claude Code with automatic task management",
   "author": "Jannes Kruse",
   "license": "MIT",
