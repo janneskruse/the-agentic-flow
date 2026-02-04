@@ -36,73 +36,134 @@ You analyze projects to detect their tech stack and **CREATE** supervisors by:
 
 ---
 
-## Step 1: Smart Codebase Scan (Token-Efficient)
+## Step 1: Token-Efficient Tech Stack Detection
 
-**Goal: Detect tech stack using < 5k tokens (currently uses 25k+)**
+**CRITICAL: You MUST follow this exact order and STOP as soon as you have enough information.**
 
-### Tier 1: Documentation First (< 1k tokens)
+**Token Budget: Maximum 5,000 tokens for this entire step. Track your usage.**
 
-**Try to extract tech stack from existing docs:**
+### Phase 1: Check for Existing Documentation (Budget: 1,500 tokens)
 
-```bash
-# Check for documentation files
-[[ -f README.md ]] && cat README.md
-[[ -f ARCHITECTURE.md ]] && cat ARCHITECTURE.md
-[[ -f docs/architecture.md ]] && cat docs/architecture.md
-```
-
-**Look for tech stack mentions:**
-- Framework names (React, Vue, FastAPI, Django, Express, etc.)
-- Language mentions (Python, TypeScript, Go, Rust, etc.)
-- Infrastructure (Docker, Kubernetes, Terraform, etc.)
-
-**If clear tech stack found in docs → Skip to Tier 3 (verification)**
-
-### Tier 2: Config File Scan (< 2k tokens)
-
-**Only run if Tier 1 was insufficient.**
-
-Scan ONLY config files (not source code):
+**Try documentation FIRST. If successful, skip to Step 2.**
 
 ```bash
-# Find config files
-Glob(pattern="package.json")
-Glob(pattern="requirements.txt")
-Glob(pattern="pyproject.toml")
-Glob(pattern="Cargo.toml")
-Glob(pattern="go.mod")
-Glob(pattern="Dockerfile")
-Glob(pattern=".github/workflows/*.yml")
+# Read ONLY these files if they exist (stop after finding tech stack info)
+if [[ -f README.md ]]; then
+  head -100 README.md  # First 100 lines only
+fi
+
+if [[ -f package.json ]]; then
+  head -30 package.json  # Just dependencies section
+fi
 ```
 
-For each found:
-- Read **first 50 lines only** (skip lockfiles entirely)
-- Extract framework names from dependencies
-- Note: Don't read `package-lock.json`, `yarn.lock`, `poetry.lock`, `Cargo.lock`
+**Look for clear tech stack mentions in README:**
+- "Built with React" → React detected, STOP scanning
+- "Python/FastAPI backend" → FastAPI detected, STOP scanning
+- Tech stack section with bullet points → Extract and STOP
 
-### Tier 3: Targeted Verification (< 1k tokens)
+**If you found clear tech stack info → SKIP to Step 2 immediately. Do NOT scan further.**
 
-**For each claimed/detected technology, verify with a single grep:**
+### Phase 2: Minimal Config Scan (Budget: 2,000 tokens)
+
+**ONLY run this if Phase 1 found NOTHING.**
+
+Scan EXACTLY these files in this order. **STOP after finding 2-3 technologies:**
 
 ```bash
-# Example verifications (run ONE per technology)
-grep -r "from fastapi" --include="*.py" -l | head -1  # Python/FastAPI
-grep -r "import React" --include="*.tsx" --include="*.jsx" -l | head -1  # React
-grep -r "package main" --include="*.go" -l | head -1  # Go
+# 1. Check for package.json (Node/Frontend)
+if [[ -f package.json ]]; then
+  # Read ONLY dependencies section (lines 10-40 typically)
+  sed -n '10,40p' package.json
+  # If you see "react", "vue", "express" → STOP, you have enough
+fi
+
+# 2. Check for Python
+if [[ -f requirements.txt ]]; then
+  head -20 requirements.txt  # First 20 lines only
+  # If you see "fastapi", "django", "flask" → STOP
+fi
+
+# 3. Check for other languages ONLY if above found nothing
+[[ -f go.mod ]] && echo "Go detected"
+[[ -f Cargo.toml ]] && echo "Rust detected"
+[[ -f Dockerfile ]] && echo "Docker detected"
 ```
 
-**If found → confirmed; if not → mark as "declared but unused"**
+**STOP IMMEDIATELY after detecting 2-3 core technologies. Do NOT scan source code.**
 
-### DO NOT (Token Waste):
-- ❌ Scan all source files
-- ❌ Read full dependency lockfiles
-- ❌ Fetch external agents until tech stack confirmed
-- ❌ Read more than 50 lines of any config file
-- ❌ Use Grep on entire codebase without specific patterns
+### Phase 3: Quick Verification (Budget: 500 tokens)
 
-### Detection Tables
+**ONLY if you're unsure about a specific technology.**
 
-Use these for quick reference:
+Run ONE targeted grep per uncertain technology:
+
+```bash
+# Example: Verify React is actually used
+grep -l "import React" src/**/*.{jsx,tsx} 2>/dev/null | head -1
+```
+
+**If found → confirmed. If not found → skip that supervisor.**
+
+### What You MUST NOT Do
+
+❌ **NEVER** read these files:
+- `package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`
+- `poetry.lock`, `Pipfile.lock`
+- `Cargo.lock`
+- Any file over 100 lines
+
+❌ **NEVER** scan source directories:
+- Don't glob `src/**/*`
+- Don't grep entire codebase
+- Don't read multiple source files
+
+❌ **NEVER** fetch external agents until you have confirmed tech stack
+
+### Decision Tree
+
+```
+Start
+  ↓
+README has tech stack? 
+  YES → Extract, go to Step 2
+  NO → Continue
+  ↓
+package.json exists?
+  YES → Read deps (lines 10-40), detect framework, go to Step 2
+  NO → Continue
+  ↓
+requirements.txt exists?
+  YES → Read first 20 lines, detect framework, go to Step 2
+  NO → Continue
+  ↓
+Other config files?
+  YES → Quick check (go.mod, Cargo.toml, Dockerfile)
+  NO → Report "minimal setup, user will specify agents"
+  ↓
+Go to Step 2 with detected technologies
+```
+
+### Example: Efficient Detection
+
+**Good (< 2k tokens):**
+```
+1. Read README.md (first 100 lines) → Found "Built with React and FastAPI"
+2. STOP. Tech stack: React, FastAPI
+3. Go to Step 2
+```
+
+**Bad (25k+ tokens):**
+```
+1. Read entire README
+2. Read all of package.json
+3. Glob src/**/*.tsx
+4. Read 50 source files
+5. Grep entire codebase
+6. Fetch external agents before confirming
+```
+
+---
 
 ### Backend Detection
 | Indicator | Technology | Output Supervisor Name |
@@ -144,76 +205,74 @@ Use these for quick reference:
 
 ---
 
-## Step 2: Fetch Specialists from External Directory
+## Step 2: Create Minimal Supervisors (Token Budget: 2,000 tokens)
 
-**This is MANDATORY for every detected technology.**
-
-### External Directory Location
-```
-WebFetch(url="https://github.com/ayush-that/sub-agents.directory", prompt="Find specialist agent for [technology]")
-```
+**SKIP external directory fetching entirely. Create minimal supervisors locally.**
 
 ### For Each Detected Technology
 
-1. **Search the external directory** for matching specialist
-2. **Fetch the full agent definition** (markdown with YAML frontmatter)
-3. **Determine agent type:**
-   - **Implementation** (has Write/Edit tools) → Inject beads workflow
-   - **Advisor** (read-only tools) → No injection needed
+Create a minimal supervisor with ONLY:
+1. YAML frontmatter
+2. Beads workflow injection
+3. Tech stack name
 
-### If Specialist Not Found
+**DO NOT:**
+- ❌ Fetch from external directory (too expensive)
+- ❌ Add code examples
+- ❌ Add lengthy best practices
+- ❌ Read external documentation
 
-If external directory doesn't have a matching specialist:
-1. Log: "No external specialist found for [technology]"
-2. Create a minimal supervisor with just beads workflow
-3. Note in report that specialty guidance is limited
+### Minimal Supervisor Template
+
+```markdown
+---
+name: {tech}-supervisor
+description: {Technology} implementation supervisor
+model: sonnet
+tools: *
+---
+
+# {Technology} Supervisor: "{Name}"
+
+[READ AND INSERT: .claude/beads-workflow-injection.md]
 
 ---
 
-## Step 2.5: Filter External Agent Content (CRITICAL)
+## Tech Stack
 
-**Before injecting into your project, FILTER the external agent content.**
-
-The agent already knows HOW to code. Keep the WHAT and WHY, remove the HOW.
-
-### KEEP (Guidance):
-- Standards references ("Follow PEP-8", "Use type hints", "Prefer async/await")
-- Tech stack list (just names: "FastAPI, SQLAlchemy, Pydantic")
-- Project structure (directory tree for navigation)
-- Scope definitions (what to handle vs escalate)
-- Quality standards ("90% test coverage", "strict mypy")
-- Brief pattern names ("Use repository pattern", "Follow service layer conventions")
-
-### STRIP (Examples):
-- Code blocks (` ``` `) longer than 3 lines
-- Sections titled "Example:", "Here's how:", "Pattern:", "Usage:"
-- Step-by-step implementation tutorials
-- "Common mistakes" with code demonstrations
-- API pattern implementations
-- Configuration file examples with full content
-
-### Filtering Process:
-
-```
-For each section in external agent content:
-  IF section contains code block > 3 lines:
-    REMOVE the code block, keep surrounding text if valuable
-  IF section is titled "Example" or "Pattern" or "How to":
-    SUMMARIZE in 1 line or REMOVE entirely
-  IF section lists guidelines/standards:
-    KEEP as-is
-  IF section defines scope (handles/escalates):
-    KEEP as-is
-```
-
-### Target Size:
-- External agents may be 500-800 lines
-- After filtering: ~80-120 lines of specialty content
-- Total supervisor file: ~150-220 lines (workflow + filtered specialty)
+{Technology name only - e.g., "React", "FastAPI", "Go"}
 
 ---
 
-## Step 3: Inject Beads Workflow (and UI Constraints for Frontend)
+## Scope
+
+**You handle:** {Technology} implementation tasks
+**You escalate:** Cross-domain work to orchestrator
+
+---
+
+## Standards
+
+- Follow {technology} best practices
+- Write tests for all changes
+- Use conventional commits
+```
+
+### Quick Reference
+
+| Technology | Supervisor Name | Persona Name |
+|------------|----------------|--------------|
+| React/Next.js | react-supervisor | Luna |
+| Python/FastAPI/Django | python-backend-supervisor | Tessa |
+| Node/Express | node-backend-supervisor | Nina |
+| Go | go-supervisor | Grace |
+| Rust | rust-supervisor | Ruby |
+| Vue | vue-supervisor | Violet |
+| Docker/K8s | infra-supervisor | Olive |
+
+---
+
+## Step 3: Write Supervisor Files
 
 **For every implementation agent, inject beads workflow at the BEGINNING after frontmatter and intro.**
 
@@ -489,29 +548,20 @@ TECH_STACK:
   Infrastructure: [list]
 
 SUPERVISORS_CREATED:
-  [role].md ([Name]) - [technology] - [line count] lines (filtered from [original] lines)
-  [role].md ([Name]) - [technology] - [line count] lines (filtered from [original] lines)
+  [role].md ([Name]) - [technology] - minimal template (~100 lines)
+  [role].md ([Name]) - [technology] - minimal template (~100 lines)
 
-FILTERING_APPLIED:
-  - Code examples removed: Yes
-  - Tutorial sections removed: Yes
-  - All supervisors < 150 lines: [Yes/No - list any exceptions]
+TOKEN_USAGE: ~[X]k tokens (target: < 5k)
 
-BEADS_WORKFLOW_INJECTED: Yes (all implementation agents)
-DISCIPLINE_SKILL_REQUIRED: Yes (in beads workflow)
+APPROACH_USED:
+  - Phase 1: [README/docs checked - found/not found]
+  - Phase 2: [Config files scanned - found X technologies]
+  - Phase 3: [Verification - skipped/ran for X techs]
+  - External fetching: SKIPPED (using minimal local templates)
 
-FRONTEND_REVIEWS_ENFORCEMENT:
-  - Registered supervisors: [list of frontend supervisors in .claude/frontend-supervisors.txt]
-  - Required reviews: RAMS (accessibility) + Web Interface Guidelines (design)
+BEADS_WORKFLOW_INJECTED: Yes (all supervisors)
 
-SKILLS_INSTALLED:
-  - react-best-practices: [Yes/No/N/A] (React/Next.js projects only)
-
-EXTERNAL_DIRECTORY_STATUS: [Available/Unavailable]
-  - Specialists found: [list]
-  - Specialists not found: [list]
-
-READY: Supervisors configured for beads workflow with verification-first discipline
+READY: Supervisors configured for beads workflow
 ```
 
 ---

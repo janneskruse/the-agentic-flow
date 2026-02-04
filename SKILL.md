@@ -180,34 +180,52 @@ Tell the user:
 
 ---
 
-## Step 4: Run Discovery (After Restart OR Detection)
+## Step 4: Conditional Discovery (After Restart OR Detection)
 
 <post-restart>
 **Run this step if:**
 - Step 0 detected `BOOTSTRAP_COMPLETE`, OR
 - User returned after restart and said "continue setup" or ran `/create-beads-orchestration` again
 
-1. Verify bootstrap completed (check for `.claude/agents/scout.md`) - already done in Step 0
-2. Run the discovery agent:
+### 4.1: Check User's Discovery Preference
 
-```python
-Task(
-    subagent_type="discovery",
-    prompt="Detect tech stack and create supervisors for this project"
-)
-```
+Based on Step 0.5 answers:
 
-Discovery will:
-- Scan package.json, requirements.txt, Dockerfile, etc.
-- Fetch specialist agents from external directory
-- Inject beads workflow into each supervisor
-- Write supervisors to `.claude/agents/`
+**If user provided guidance document:**
+1. Read the guidance document they specified
+2. Extract tech stack from it
+3. **SKIP discovery agent entirely**
+4. Create minimal supervisors based on extracted tech stack
+5. Tell user: "Created supervisors based on your guidance: [list]"
 
-3. After discovery completes, tell the user:
+**If user said "trust" existing docs:**
+1. Read README.md (first 100 lines)
+2. Extract tech stack mentions
+3. **SKIP discovery agent entirely**
+4. Create minimal supervisors
+5. Tell user: "Created supervisors based on README: [list]"
+
+**If user said "scan the repo":**
+1. Run the discovery agent:
+   ```python
+   Task(
+       subagent_type="discovery",
+       prompt="Detect tech stack using token-efficient scanning. Budget: 5k tokens max."
+   )
+   ```
+
+**If user said "no, I'll specify agents manually":**
+1. **SKIP discovery entirely**
+2. Create ONLY the core agents (scout, detective, architect, scribe, code-reviewer)
+3. Tell user: "Minimal setup complete. Add custom supervisors to `.claude/agents/` as needed."
+
+### 4.2: After Discovery/Setup Completes
+
+Tell the user:
 
 > **Orchestration setup complete!**
 >
-> Created supervisors: [list what discovery created]
+> Created supervisors: [list what was created]
 >
 > You can now use the orchestration workflow:
 > - Create tasks with `bd create "Task name" -d "Description"`
