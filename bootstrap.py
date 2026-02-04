@@ -15,6 +15,7 @@ Usage:
 Modes:
     Default: All agents use Claude Task() directly (claude-only)
     --external-providers: Sets up provider_delegator MCP for Codex/Gemini delegation
+    --antigravity: Sets up Antigravity support
 """
 
 import os
@@ -952,6 +953,13 @@ with beads workflow injected.
 
 
 
+
+def get_install_path():
+    """Try to find the installation path from the config file."""
+    config_file = Path.home() / ".claude" / "the-agentic-flow-path.txt"
+    if config_file.exists():
+        return config_file.read_text().strip()
+    return None
 
 if __name__ == "__main__":
     main()

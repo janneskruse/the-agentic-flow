@@ -113,13 +113,13 @@ AskUserQuestion(
 
 ```bash
 # With Kanban UI:
-npx beads-orchestration@latest bootstrap \
+npx @apapacho/the-agentic-flow bootstrap \
   --project-name "{{PROJECT_NAME}}" \
   --project-dir "{{PROJECT_DIR}}" \
   --with-kanban-ui
 
 # Without Kanban UI (git worktrees only):
-npx beads-orchestration@latest bootstrap \
+npx @apapacho/the-agentic-flow bootstrap \
   --project-name "{{PROJECT_NAME}}" \
   --project-dir "{{PROJECT_DIR}}"
 ```

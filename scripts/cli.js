@@ -12,7 +12,7 @@ const bootstrapScript = path.join(packageDir, 'bootstrap.py');
 
 function showHelp() {
   console.log(`
-beads-orchestration - Multi-agent orchestration for Claude Code
+the-agentic-flow - Multi-agent orchestration for Claude Code
 
 Usage:
   beads-orchestration <command> [options]
@@ -23,9 +23,9 @@ Commands:
   help             Show this help message
 
 Examples:
-  beads-orchestration install
-  beads-orchestration bootstrap --project-dir /path/to/project --claude-only
-  beads-orchestration bootstrap --project-dir /path/to/project --antigravity
+  npx @apapacho/the-agentic-flow install
+  npx @apapacho/the-agentic-flow bootstrap --project-dir /path/to/project --claude-only
+  npx @apapacho/the-agentic-flow bootstrap --project-dir /path/to/project --antigravity
 
 After installing, use /create-beads-orchestration in Claude Code.
 `);

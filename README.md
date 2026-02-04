@@ -6,7 +6,7 @@
 
 **Claude Code plans great. Without structure, nothing survives past one session.**
 
-[![npm version](https://img.shields.io/npm/v/beads-orchestration?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/beads-orchestration)
+[![npm version](https://img.shields.io/npm/v/@apapacho/the-agentic-flow?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/@apapacho/the-agentic-flow)
 [![GitHub stars](https://img.shields.io/github/stars/AvivK5498/The-Claude-Protocol?style=for-the-badge&logo=github&color=181717)](https://github.com/janneskruse/the-agentic-flow)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 
@@ -92,7 +92,7 @@ npx skills add AvivK5498/The-Claude-Protocol
 Or via npm:
 
 ```bash
-npm install -g beads-orchestration
+npm install -g @apapacho/the-agentic-flow
 ```
 
 Then in any Claude Code session:
@@ -118,7 +118,7 @@ This repo also supports Google's Antigravity agent.
 
 ### Setup
 ```bash
-npx beads-orchestration bootstrap --antigravity
+npx @apapacho/the-agentic-flow bootstrap --antigravity
 ```
 
 This creates an `.agent/skills/beads-orchestration` directory containing the keys to the kingdom: a `SKILL.md` that teaches Antigravity how to use the `bd` CLI.

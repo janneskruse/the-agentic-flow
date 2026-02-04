@@ -306,7 +306,7 @@ The filename and `name:` in YAML frontmatter MUST match and end in `-supervisor`
    During bootstrap, this file should have been copied to the project. If running discovery manually, read from the orchestration repo and write to project:
 
    ```
-   Read(file_path="[beads-orchestration-path]/templates/skills/react-best-practices/SKILL.md")
+   Read(file_path="[the-agentic-flow-path]/templates/skills/react-best-practices/SKILL.md")
    Write(file_path=".claude/skills/react-best-practices/SKILL.md", content=<skill-content>)
    ```
 

@@ -13,7 +13,7 @@ const claudeSkillsDir = path.join(claudeDir, 'skills', SKILL_NAME);
 const packageDir = path.dirname(__dirname);
 const sourceSkillDir = path.join(packageDir, 'skills', SKILL_NAME);
 
-console.log('\n📦 Installing beads-orchestration skill...\n');
+console.log('\n📦 Installing @apapacho/the-agentic-flow skill...\n');
 
 // Check OS
 if (process.platform === 'win32') {
@@ -48,7 +48,7 @@ try {
 }
 
 // Save package location for bootstrap.py
-const configFile = path.join(claudeDir, 'beads-orchestration-path.txt');
+const configFile = path.join(claudeDir, 'the-agentic-flow-path.txt');
 try {
   fs.writeFileSync(configFile, packageDir);
   console.log(`✅ Saved package path to: ${configFile}`);
