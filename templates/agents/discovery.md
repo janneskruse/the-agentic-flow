@@ -36,9 +36,73 @@ You analyze projects to detect their tech stack and **CREATE** supervisors by:
 
 ---
 
-## Step 1: Codebase Scan
+## Step 1: Smart Codebase Scan (Token-Efficient)
 
-**Scan for indicators (use Glob, Grep, Read):**
+**Goal: Detect tech stack using < 5k tokens (currently uses 25k+)**
+
+### Tier 1: Documentation First (< 1k tokens)
+
+**Try to extract tech stack from existing docs:**
+
+```bash
+# Check for documentation files
+[[ -f README.md ]] && cat README.md
+[[ -f ARCHITECTURE.md ]] && cat ARCHITECTURE.md
+[[ -f docs/architecture.md ]] && cat docs/architecture.md
+```
+
+**Look for tech stack mentions:**
+- Framework names (React, Vue, FastAPI, Django, Express, etc.)
+- Language mentions (Python, TypeScript, Go, Rust, etc.)
+- Infrastructure (Docker, Kubernetes, Terraform, etc.)
+
+**If clear tech stack found in docs → Skip to Tier 3 (verification)**
+
+### Tier 2: Config File Scan (< 2k tokens)
+
+**Only run if Tier 1 was insufficient.**
+
+Scan ONLY config files (not source code):
+
+```bash
+# Find config files
+Glob(pattern="package.json")
+Glob(pattern="requirements.txt")
+Glob(pattern="pyproject.toml")
+Glob(pattern="Cargo.toml")
+Glob(pattern="go.mod")
+Glob(pattern="Dockerfile")
+Glob(pattern=".github/workflows/*.yml")
+```
+
+For each found:
+- Read **first 50 lines only** (skip lockfiles entirely)
+- Extract framework names from dependencies
+- Note: Don't read `package-lock.json`, `yarn.lock`, `poetry.lock`, `Cargo.lock`
+
+### Tier 3: Targeted Verification (< 1k tokens)
+
+**For each claimed/detected technology, verify with a single grep:**
+
+```bash
+# Example verifications (run ONE per technology)
+grep -r "from fastapi" --include="*.py" -l | head -1  # Python/FastAPI
+grep -r "import React" --include="*.tsx" --include="*.jsx" -l | head -1  # React
+grep -r "package main" --include="*.go" -l | head -1  # Go
+```
+
+**If found → confirmed; if not → mark as "declared but unused"**
+
+### DO NOT (Token Waste):
+- ❌ Scan all source files
+- ❌ Read full dependency lockfiles
+- ❌ Fetch external agents until tech stack confirmed
+- ❌ Read more than 50 lines of any config file
+- ❌ Use Grep on entire codebase without specific patterns
+
+### Detection Tables
+
+Use these for quick reference:
 
 ### Backend Detection
 | Indicator | Technology | Output Supervisor Name |

@@ -63,6 +63,26 @@ ls .claude/agents/scout.md 2>/dev/null && echo "BOOTSTRAP_COMPLETE" || echo "FRE
 
 ---
 
+## Step 0.5: Pre-Discovery Dialogue (Fresh Setup Only)
+
+**Before running discovery, gather context from the user to optimize scanning.**
+
+Ask the user:
+
+1. **"What problem are you trying to solve IN this project?"**
+   - This helps scope which supervisors are needed
+   - Informs discovery about relevant tech stack areas
+
+2. **"Do you have a guidance document for the project structure (README, architecture doc, etc.)?"**
+   - **If Yes** → Ask: "Should I verify it against the codebase, or trust it as-is?"
+     - **Verify** → Discovery will run targeted checks against specific claims
+     - **Trust** → Discovery will parse and extract structure, skip deep scanning
+   - **If No** → Ask: "Should the discovery agent scan the repository to gather this information?"
+     - **Yes** → Run smart discovery (README first, then targeted)
+     - **No** → Create minimal setup, user will specify agents manually later
+
+---
+
 ## Step 1: Get Project Info (Fresh Setup Only)
 
 <critical-step1>

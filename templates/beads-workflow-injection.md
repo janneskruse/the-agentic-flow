@@ -56,6 +56,11 @@ If the orchestrator's approach would break something, explain what you found and
 1. Work ONLY in your worktree: `.worktrees/bd-{BEAD_ID}/`
 2. Commit frequently with descriptive messages
 3. Log progress: `bd comment {BEAD_ID} "Completed X, working on Y"`
+4. **Test after changes (MANDATORY):**
+   - Run appropriate test command for tech stack
+   - For frontend: use Chrome DevTools MCP if available (`mcp__chrome_dev_tools__*`)
+   - Fix failing tests before proceeding
+   - Repeat implement→test→fix until green
 </during-implementation>
 
 <on-completion>

@@ -83,6 +83,158 @@ The Claude Protocol pairs with the [Beads Kanban UI](https://github.com/AvivK549
 
 ---
 
+## Architecture: How Agents Work Together
+
+### Task Ownership & Responsibilities
+
+| Role | Creates Tasks? | Works on Tasks? | Creates Dependencies? |
+|------|----------------|-----------------|----------------------|
+| **Orchestrator** (Claude) | ✅ Yes (via `bd create`) | ❌ Never | ✅ Yes (via `--deps`) |
+| **Supervisors** | ❌ Never | ✅ Yes (in worktrees) | ❌ Never |
+| **Detectives/Scout** | ❌ Never | ❌ Never | ❌ Never |
+
+**The orchestrator** is the only agent that creates beads and manages dependencies. Supervisors only work on assigned tasks in isolated worktrees.
+
+### Agent Types
+
+| Agent | Type | Purpose | When Used |
+|-------|------|---------|-----------|
+| **scout** | Read-only | Quick reconnaissance | "What files relate to X?" |
+| **detective** | Read-only | Deep investigation | "Why is X broken?" |
+| **architect** | Read-only | Design docs for epics | Cross-domain features |
+| **scribe** | Read-only | Documentation generation | Doc updates |
+| **security-detective** | Read-only | Vulnerability scanning | Security audits |
+| **{tech}-supervisor** | Implementation | Actual code changes | Per-task execution |
+| **security-supervisor** | Implementation | Security fixes | Vulnerability remediation |
+| **code-reviewer** | Verification | 3-phase review | Optional review gate |
+
+### Bead Task Lifecycle
+
+```
+User Request
+    ↓
+Orchestrator investigates (Grep, Read, Glob)
+    ↓
+Plan with user (optional: Plan mode)
+    ↓
+User confirms approach
+    ↓
+**Interactive agent selection:**
+  - Orchestrator lists available agents
+  - Recommends best agent for each task
+  - User accepts or specifies different agents
+  - Final "go" confirmation
+    ↓
+Orchestrator creates bead(s)
+    ↓
+Orchestrator dispatches supervisor with BEAD_ID
+    ↓
+Supervisor works in .worktrees/bd-{BEAD_ID}/
+    ↓
+Supervisor commits, pushes, marks `inreview`
+    ↓
+Orchestrator prompts: /review, /merge, or /continue
+    ↓
+User merges PR
+    ↓
+bd close {ID}
+```
+
+---
+
+## Auto-Pilot Mode (Generalized Loop)
+
+Enable autonomous task execution with automatic testing and retry logic.
+
+### How to Activate
+
+Say to Claude: **"auto-pilot"**, **"watch mode"**, or **"run the loop"**
+
+### The Loop
+
+```
+1. Run `bd ready` to find unblocked tasks
+2. For each ready task:
+   - Determine type from bead title (Implement, Test, Scan, Fix, etc.)
+   - Dispatch appropriate agent
+3. Wait for completion → agent marks `inreview`
+4. Auto-create test bead (if implementation task)
+5. If test fails:
+   - Create fix bead with dependency
+   - Loop continues
+6. If test passes:
+   - Notify user "Task BD-XXX complete, tests passing"
+7. Run `bd ready` again → repeat until empty
+```
+
+### Agent Routing
+
+Auto-pilot automatically selects agents based on bead title:
+
+| Bead Title Pattern | Agent Dispatched |
+|-------------------|------------------|
+| "Implement...", "Add...", "Create..." | `{tech}-supervisor` |
+| "Test...", "Verify..." | Built-in test mode OR `code-reviewer` |
+| "Scan...", "Audit...", "Security..." | `security-detective` |
+| "Fix...", "Resolve..." | `{tech}-supervisor` |
+| "Investigate...", "Debug..." | `detective` |
+
+### Safety Rails
+
+- **Max 3 retries** per original task (prevents infinite loops)
+- **User can interrupt** anytime with "stop" or "pause"
+- **Full traceability**: Each iteration creates new beads
+- **Retry tracking**: Stored in bead comments (`RETRY: 1/3`)
+
+### Resume After Stop
+
+When you say "stop", the currently running agent completes its work gracefully (no mid-task termination), then the loop pauses.
+
+**Resume commands:**
+- `"continue"` or `"resume"` → Picks up where it left off
+- `"continue BD-XXX"` → Resume specific task
+- `"skip BD-XXX"` → Mark task as skipped, continue with next
+
+**Works across sessions**: The `.beads/` database persists all state. You can:
+1. Stop auto-pilot
+2. Close Claude entirely
+3. Reopen later
+4. Say "continue"
+5. Loop resumes from where it stopped
+
+---
+
+## Custom Agents
+
+Want to add your own specialized agents? Just drop them in `.claude/agents/`.
+
+### Requirements
+
+1. **Filename**: Must end with `-supervisor` for implementation agents
+2. **Format**: Markdown with YAML frontmatter
+3. **Workflow**: Must include beads workflow (copy from `.claude/beads-workflow-injection.md`)
+
+### Example
+
+```markdown
+---
+name: my-custom-supervisor
+description: Handles custom domain logic
+model: sonnet
+tools: *
+---
+
+# My Custom Supervisor: "Name"
+
+[Include beads workflow here]
+
+[Your custom instructions]
+```
+
+The orchestrator will automatically detect and offer your custom agent when appropriate.
+
+---
+
 ## Getting Started
 
 ```bash

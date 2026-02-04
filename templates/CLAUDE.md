@@ -18,8 +18,17 @@ Flow:
 1. **Investigate** — Use Grep, Read, Glob to understand the issue
 2. **Discuss with user** — Present findings, propose plan, highlight trade-offs
 3. **User confirms** approach
-4. **Create bead** — `bd create "Task" -d "Details"`
-5. **Dispatch** — Supervisor gets full context in the dispatch prompt
+4. **Agent selection** (interactive):
+   - List available agents: `ls .claude/agents/*.md`
+   - For each task, recommend best agent based on file types/domains
+   - Present: "I recommend using these agents for these tasks:"
+     - Task A → `react-supervisor` (frontend changes)
+     - Task B → `python-backend-supervisor` (API changes)
+   - Ask: "Accept these agents, or specify different ones?"
+   - User can override: "Use my-custom-supervisor for Task A instead"
+5. **Final confirmation** — "I will now create beads and dispatch agents. Proceed?"
+6. **Create bead** — `bd create "Task" -d "Details"`
+7. **Dispatch** — Supervisor gets full context in the dispatch prompt
 
 ### Plan Mode (complex features)
 
@@ -35,11 +44,61 @@ Flow:
 3. Design implementation approach in the plan file
 4. Ask user questions via AskUserQuestion
 5. Get approval via ExitPlanMode
-6. Create bead(s) from the approved plan
-7. Dispatch supervisors with plan context
+6. **Agent selection** (interactive):
+   - List available agents in `.claude/agents/`
+   - For each planned task, recommend best agent
+   - Present recommendations to user
+   - Allow user to accept or specify different agents
+7. **Final confirmation** — "I will now create beads and dispatch agents. Proceed?"
+8. Create bead(s) from the approved plan
+9. Dispatch supervisors with plan context
 
 Plan mode is the **thinking step** before beads. The approved plan becomes the
 source of truth for bead creation and supervisor dispatch prompts.
+
+### Auto-Pilot Mode (Generalized Loop)
+
+When user says "auto-pilot", "watch mode", or "run the loop":
+
+**The Loop:**
+1. Run `bd ready` to find unblocked tasks
+2. For each ready task:
+   - Determine task type from bead title/description
+   - Dispatch appropriate agent (supervisor, tester, detective)
+3. Wait for agent completion
+4. Agent marks bead `inreview`
+5. **Automatic test dispatch** (if implementation task):
+   - Create test bead: `bd create "Test: {BEAD_TITLE}" --deps {BEAD_ID}`
+   - Dispatch test verification
+6. **If test fails**:
+   - Create fix bead: `bd create "Fix: {FAILURE_REASON}" --deps {TEST_BEAD_ID}`
+   - Link to original: `bd dep relate {FIX_ID} {ORIGINAL_ID}`
+   - Return to step 1 (loop continues)
+7. **If test passes**: notify user "Task BD-XXX complete, tests passing"
+8. Run `bd ready` again → repeat until empty
+
+**Loop Rules:**
+- User can interrupt anytime with "stop" or "pause"
+- Each iteration creates new beads (full traceability)
+- Max 3 retry attempts per original task (prevent infinite loops)
+- Track retries in bead comments: `bd comment {ID} "RETRY: 1/3"`
+- Orchestrator notifies user after each cycle: "Completed X, now working on Y"
+
+**Resume after stop:**
+- "continue" or "resume" → Run `bd ready`, pick up where left off
+- "continue BD-XXX" → Resume specific task
+- "skip BD-XXX" → Mark task as skipped, continue with next
+- Works across sessions (`.beads/` persists state)
+
+**Agent Routing Table:**
+
+| Bead Title Pattern | Agent to Dispatch |
+|-------------------|-------------------|
+| "Implement...", "Add...", "Create..." | `{tech}-supervisor` |
+| "Test...", "Verify..." | Built-in test mode OR `code-reviewer` |
+| "Scan...", "Audit...", "Security..." | `security-detective` |
+| "Fix...", "Resolve..." | `{tech}-supervisor` |
+| "Investigate...", "Debug..." | `detective` |
 
 #### Plan → Bead Mapping
 
@@ -178,8 +237,14 @@ For simple tasks handled by one supervisor:
 2. Create bead: `bd create "Task" -d "Details"`
 3. Dispatch with fix: `Task(subagent_type="<tech>-supervisor", prompt="BEAD_ID: {id}\n\n{problem + fix}")`
 4. Supervisor creates worktree, implements, pushes, marks `inreview` when done
-5. **User merges via UI** (Create PR → wait for CI → Merge PR → Clean Up)
-6. Close: `bd close {ID}` (or auto-close on cleanup)
+5. **Review phase** (orchestrator prompts user):
+   - Notify user: "Task BD-XXX is ready for review"
+   - Offer options:
+     - `/review BD-XXX` - Dispatch code-reviewer
+     - `/merge BD-XXX` - Skip review, proceed to merge
+     - `/continue` - Pick up next ready task
+6. **User merges via UI** (Create PR → wait for CI → Merge PR → Clean Up)
+7. Close: `bd close {ID}` (or auto-close on cleanup)
 
 ### Epic Workflow (Cross-Domain Features)
 
