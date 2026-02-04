@@ -4,7 +4,7 @@
 #
 
 INPUT=$(cat)
-PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty')
+PROMPT=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('prompt', ''))")
 
 # Only remind if dispatching a bead task (prompt contains BEAD_ID)
 if [[ "$PROMPT" == *"BEAD_ID:"* ]]; then

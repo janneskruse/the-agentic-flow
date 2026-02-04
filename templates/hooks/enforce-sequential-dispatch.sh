@@ -8,12 +8,12 @@
 #
 
 INPUT=$(cat)
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+TOOL_NAME=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_name', ''))")
 
 [[ "$TOOL_NAME" != "Task" ]] && exit 0
 
-SUBAGENT_TYPE=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty')
-PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty')
+SUBAGENT_TYPE=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('subagent_type', ''))")
+PROMPT=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('prompt', ''))")
 
 # Only check for supervisors (not architect, scout, etc.)
 [[ ! "$SUBAGENT_TYPE" =~ supervisor ]] && exit 0
@@ -26,7 +26,7 @@ BEAD_ID=$(echo "$PROMPT" | grep -oE "BEAD_ID: [A-Za-z0-9._-]+" | head -1 | sed '
 [[ -z "$BEAD_ID" ]] && exit 0
 
 # Block dispatch to closed/done beads - create a new bead instead
-BEAD_STATUS=$(bd show "$BEAD_ID" --json 2>/dev/null | jq -r '.[0].status // empty')
+BEAD_STATUS=$(bd show "$BEAD_ID" --json 2>/dev/null | python3 -c "import sys, json; data = json.load(sys.stdin); print(data[0].get('status', '') if data else '')")
 if [[ "$BEAD_STATUS" == "closed" || "$BEAD_STATUS" == "done" ]]; then
   cat << EOF
 {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"<closed-bead>\nBead ${BEAD_ID} is already ${BEAD_STATUS}. Do not reopen closed beads.\n\nCreate a new bead for follow-up work and relate it:\n\n  bd create \"Fix: [description]\" -d \"Follow-up to ${BEAD_ID}: [details]\"\n  # Returns: {NEW_ID}\n  bd dep relate {NEW_ID} ${BEAD_ID}\n\nThen dispatch with the NEW bead ID.\n</closed-bead>"}}
@@ -40,7 +40,7 @@ if [[ "$BEAD_ID" == *"."* ]]; then
   EPIC_ID=$(echo "$BEAD_ID" | sed 's/\.[0-9]*$//')
 
   # Check for unresolved blockers (exclude parent epic - it's not a real blocker)
-  BLOCKERS=$(bd dep list "$BEAD_ID" --json 2>/dev/null | jq -r --arg epic "$EPIC_ID" '.[] | select(.id != $epic and .status != "done" and .status != "closed") | .id' 2>/dev/null | tr '\n' ', ' | sed 's/,$//')
+  BLOCKERS=$(bd dep list "$BEAD_ID" --json 2>/dev/null | python3 -c "import sys, json; epic = sys.argv[1]; data = json.load(sys.stdin); print(', '.join([i.get('id') for i in data if i.get('id') != epic and i.get('status') not in ['done', 'closed']]))" "$EPIC_ID" 2>/dev/null)
 
   if [[ -n "$BLOCKERS" ]]; then
     cat << EOF
@@ -50,7 +50,7 @@ EOF
   fi
 
   # Check design doc exists (if epic has design field)
-  DESIGN_PATH=$(bd show "$EPIC_ID" --json 2>/dev/null | jq -r '.[0].design // empty')
+  DESIGN_PATH=$(bd show "$EPIC_ID" --json 2>/dev/null | python3 -c "import sys, json; data = json.load(sys.stdin); print(data[0].get('design', '') if data else '')" 2>/dev/null)
 
   if [[ -n "$DESIGN_PATH" ]] && [[ ! -f "$DESIGN_PATH" ]]; then
     cat << EOF

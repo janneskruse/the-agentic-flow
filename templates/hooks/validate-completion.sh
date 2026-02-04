@@ -4,17 +4,14 @@
 #
 
 INPUT=$(cat)
-AGENT_TRANSCRIPT=$(echo "$INPUT" | jq -r '.agent_transcript_path // empty')
-MAIN_TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript_path // empty')
-AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // empty')
+AGENT_TRANSCRIPT=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('agent_transcript_path', ''))")
+MAIN_TRANSCRIPT=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('transcript_path', ''))")
+AGENT_ID=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('agent_id', ''))")
 
 [[ -z "$AGENT_TRANSCRIPT" || ! -f "$AGENT_TRANSCRIPT" ]] && echo '{"decision":"approve"}' && exit 0
 
 # Extract last assistant text response
-LAST_RESPONSE=$(tail -200 "$AGENT_TRANSCRIPT" | jq -rs '
-  [.[] | select(.message?.role == "assistant" and .message?.content != null)
-   | .message.content[] | select(.text != null) | .text] | last // ""
-' 2>/dev/null || echo "")
+LAST_RESPONSE=$(tail -200 "$AGENT_TRANSCRIPT" | python3 -c "import sys, json; lines = sys.stdin.readlines(); data = [json.loads(l) for l in lines if l.strip()]; assistants = [m.get('message', {}) for d in data for m in [d] if m.get('message', {}).get('role') == 'assistant']; texts = [c.get('text') for a in assistants for c in a.get('content', []) if c.get('text')]; print(texts[-1] if texts else '')" 2>/dev/null || echo "")
 
 # === LAYER 1: Extract subagent_type from transcript (fail open) ===
 SUBAGENT_TYPE=""
@@ -23,7 +20,7 @@ if [[ -n "$AGENT_ID" && -n "$MAIN_TRANSCRIPT" && -f "$MAIN_TRANSCRIPT" ]]; then
   if [[ -n "$PARENT_TOOL_USE_ID" ]]; then
     SUBAGENT_TYPE=$(grep "\"id\":\"$PARENT_TOOL_USE_ID\"" "$MAIN_TRANSCRIPT" 2>/dev/null | \
       grep '"name":"Task"' | \
-      jq -r '.message.content[]? | select(.type == "tool_use" and .id == "'"$PARENT_TOOL_USE_ID"'") | .input.subagent_type // empty' 2>/dev/null | \
+      python3 -c "import sys, json; tid = sys.argv[1]; line = sys.stdin.readline(); data = json.loads(line) if line else {}; items = [c for c in data.get('message', {}).get('content', []) if c.get('type') == 'tool_use' and c.get('id') == tid]; print(items[0].get('input', {}).get('subagent_type', '') if items else '')" "$PARENT_TOOL_USE_ID" 2>/dev/null | \
       head -1)
   fi
 fi
@@ -106,7 +103,7 @@ EOF
 fi
 
 # Check 6: Bead status
-BEAD_STATUS=$(bd show "$BEAD_ID_FROM_RESPONSE" --json 2>/dev/null | jq -r '.[0].status // "unknown"')
+BEAD_STATUS=$(bd show "$BEAD_ID_FROM_RESPONSE" --json 2>/dev/null | python3 -c "import sys, json; data = json.load(sys.stdin); print(data[0].get('status', '') if data else '')")
 EXPECTED_STATUS="inreview"
 # Epic children also use inreview (done status not supported in bd)
 if [[ "$BEAD_STATUS" != "$EXPECTED_STATUS" ]]; then

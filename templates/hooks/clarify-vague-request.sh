@@ -6,7 +6,7 @@
 #
 
 INPUT=$(cat)
-PROMPT=$(echo "$INPUT" | jq -r '.prompt // empty')
+PROMPT=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('prompt', ''))")
 LENGTH=${#PROMPT}
 
 if [[ $LENGTH -lt 50 ]]; then

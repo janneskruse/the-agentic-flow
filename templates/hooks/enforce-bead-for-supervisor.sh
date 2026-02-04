@@ -7,12 +7,12 @@
 #
 
 INPUT=$(cat)
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+TOOL_NAME=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_name', ''))")
 
 [[ "$TOOL_NAME" != "Task" ]] && exit 0
 
-SUBAGENT_TYPE=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty')
-PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty')
+SUBAGENT_TYPE=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('subagent_type', ''))")
+PROMPT=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('prompt', ''))")
 
 # Only enforce for supervisors
 [[ ! "$SUBAGENT_TYPE" =~ supervisor ]] && exit 0

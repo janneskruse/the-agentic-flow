@@ -63,7 +63,7 @@ if [[ "$SHOW_STATS" == "true" ]]; then
   TOTAL=$(wc -l < "$KNOWLEDGE_FILE" | tr -d ' ')
   LEARNED=$(grep -c '"type":"learned"' "$KNOWLEDGE_FILE" 2>/dev/null) || LEARNED=0
   INVESTIGATION=$(grep -c '"type":"investigation"' "$KNOWLEDGE_FILE" 2>/dev/null) || INVESTIGATION=0
-  UNIQUE_KEYS=$(jq -r '.key' "$KNOWLEDGE_FILE" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+  UNIQUE_KEYS=$(python3 -c "import sys, json; data = [json.loads(l) for l in sys.stdin if l.strip()]; print(len(set(i.get('key') for i in data)))" < "$KNOWLEDGE_FILE" 2>/dev/null || echo "0")
   ARCHIVE_COUNT=0
   [[ -f "$ARCHIVE_FILE" ]] && ARCHIVE_COUNT=$(wc -l < "$ARCHIVE_FILE" | tr -d ' ')
 
@@ -80,9 +80,7 @@ fi
 if [[ "$SHOW_RECENT" -gt 0 ]]; then
   echo "## Recent Knowledge ($SHOW_RECENT entries)"
   echo ""
-  tail -"$SHOW_RECENT" "$KNOWLEDGE_FILE" | jq -r '
-    "[\(.type | ascii_upcase | .[0:5])] \(.key)\n  \(.content | .[0:120])\n  source=\(.source) bead=\(.bead)\n"
-  ' 2>/dev/null
+  tail -"$SHOW_RECENT" "$KNOWLEDGE_FILE" | python3 -c "import sys, json; lines = sys.stdin.readlines(); [print('[{}] {}\n  {}\n  source={} bead={}\n'.format(json.loads(l).get('type', '').upper()[:5], json.loads(l).get('key'), json.loads(l).get('content', '')[:120], json.loads(l).get('source'), json.loads(l).get('bead'))) for l in lines if l.strip()]" 2>/dev/null
   exit 0
 fi
 
@@ -113,9 +111,6 @@ if [[ -z "$RESULTS" ]]; then
 fi
 
 # Deduplicate by key (latest wins) and format output
-echo "$RESULTS" | jq -s '
-  group_by(.key) | map(max_by(.ts)) | sort_by(-.ts) | .[] |
-  "[\(.type | ascii_upcase | .[0:5])] \(.key)\n  \(.content | .[0:200])\n  source=\(.source) bead=\(.bead) tags=\(.tags | join(","))\n"
-' -r 2>/dev/null
+echo "$RESULTS" | python3 -c "import sys, json; lines = sys.stdin.readlines(); data = [json.loads(l) for l in lines if l.strip()]; grouped = {}; [grouped.update({i.get('key'): i}) for i in data]; sorted_data = sorted(grouped.values(), key=lambda x: x.get('ts', 0), reverse=True); [print('[{}] {}\n  {}\n  source={} bead={} tags={}\n'.format(i.get('type', '').upper()[:5], i.get('key'), i.get('content', '')[:200], i.get('source'), i.get('bead'), ','.join(i.get('tags', [])))) for i in sorted_data]" 2>/dev/null
 
 exit 0

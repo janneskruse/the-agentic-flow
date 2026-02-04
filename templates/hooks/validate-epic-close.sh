@@ -8,11 +8,11 @@ set -euo pipefail
 TOOL_INPUT="${CLAUDE_TOOL_INPUT:-}"
 
 # Only check Bash commands containing "bd close"
-if ! echo "$TOOL_INPUT" | jq -e '.command' >/dev/null 2>&1; then
+if ! echo "$TOOL_INPUT" | python3 -c "import sys, json; exit(0 if json.load(sys.stdin).get('command') else 1)" >/dev/null 2>&1; then
   exit 0
 fi
 
-COMMAND=$(echo "$TOOL_INPUT" | jq -r '.command // ""')
+COMMAND=$(echo "$TOOL_INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('command', ''))")
 
 # Check if this is a bd close command
 if ! echo "$COMMAND" | grep -qE 'bd\s+close'; then
@@ -56,7 +56,7 @@ fi
 
 # === CHECK 2: Epic children validation ===
 # Check if this is an epic by looking at issue_type
-ISSUE_TYPE=$(bd show "$CLOSE_ID" --json 2>/dev/null | jq -r '.[0].issue_type // ""' 2>/dev/null || echo "")
+ISSUE_TYPE=$(bd show "$CLOSE_ID" --json 2>/dev/null | python3 -c "import sys, json; data = json.load(sys.stdin); print(data[0].get('issue_type', '') if data else '')" 2>/dev/null || echo "")
 
 if [ "$ISSUE_TYPE" != "epic" ]; then
   # Not an epic, allow close
@@ -64,15 +64,11 @@ if [ "$ISSUE_TYPE" != "epic" ]; then
 fi
 
 # This is an epic - check if all children are complete
-INCOMPLETE=$(bd list --json 2>/dev/null | jq -r --arg epic "$CLOSE_ID" '
-  [.[] | select((.id | startswith($epic + ".")) and .status != "done" and .status != "closed")] | length
-' 2>/dev/null || echo "0")
+INCOMPLETE=$(bd list --json 2>/dev/null | python3 -c "import sys, json; epic = sys.argv[1]; data = json.load(sys.stdin); print(len([i for i in data if i.get('id', '').startswith(epic + '.') and i.get('status') not in ['done', 'closed']]))" "$CLOSE_ID" 2>/dev/null || echo "0")
 
 if [ "$INCOMPLETE" != "0" ] && [ "$INCOMPLETE" != "" ]; then
   # Get list of incomplete children for the error message
-  INCOMPLETE_LIST=$(bd list --json 2>/dev/null | jq -r --arg epic "$CLOSE_ID" '
-    [.[] | select((.id | startswith($epic + ".")) and .status != "done" and .status != "closed")] | .[] | "\(.id) (\(.status))"
-  ' 2>/dev/null | tr '\n' ', ' | sed 's/,$//')
+  INCOMPLETE_LIST=$(bd list --json 2>/dev/null | python3 -c "import sys, json; epic = sys.argv[1]; data = json.load(sys.stdin); print(', '.join(['{} ({})'.format(i.get('id'), i.get('status')) for i in data if i.get('id', '').startswith(epic + '.') and i.get('status') not in ['done', 'closed']]))" "$CLOSE_ID" 2>/dev/null)
 
   cat << EOF
 {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Cannot close epic '$CLOSE_ID' - has $INCOMPLETE incomplete children: $INCOMPLETE_LIST. Mark all children as done first."}}

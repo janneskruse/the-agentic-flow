@@ -8,19 +8,19 @@
 #
 
 INPUT=$(cat)
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+TOOL_NAME=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_name', ''))")
 
 # Only process Task tool
 [[ "$TOOL_NAME" != "Task" ]] && exit 0
 
 # Extract subagent_type
-SUBAGENT_TYPE=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty')
+SUBAGENT_TYPE=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('subagent_type', ''))")
 
 # Only log supervisor dispatches
 [[ "$SUBAGENT_TYPE" != *"supervisor"* ]] && exit 0
 
 # Extract prompt
-PROMPT=$(echo "$INPUT" | jq -r '.tool_input.prompt // empty')
+PROMPT=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('prompt', ''))")
 [[ -z "$PROMPT" ]] && exit 0
 
 # Extract BEAD_ID from prompt

@@ -6,7 +6,7 @@
 #
 
 INPUT=$(cat)
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+TOOL_NAME=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_name', ''))")
 
 # Always allow Task (delegation)
 [[ "$TOOL_NAME" == "Task" ]] && exit 0
@@ -14,8 +14,8 @@ TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
 # Detect SUBAGENT context - subagents get full tool access
 IS_SUBAGENT="false"
 
-TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty')
-TOOL_USE_ID=$(echo "$INPUT" | jq -r '.tool_use_id // empty')
+TRANSCRIPT_PATH=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('transcript_path', ''))")
+TOOL_USE_ID=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_use_id', ''))")
 
 if [[ -n "$TRANSCRIPT_PATH" ]] && [[ -n "$TOOL_USE_ID" ]]; then
   SESSION_DIR="${TRANSCRIPT_PATH%.jsonl}"
@@ -31,7 +31,7 @@ fi
 
 # Allow Plan mode — orchestrator can write to ~/.claude/plans/
 if [[ "$TOOL_NAME" == "Edit" ]] || [[ "$TOOL_NAME" == "Write" ]]; then
-  FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
+  FILE_PATH=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('file_path', ''))")
   if [[ "$FILE_PATH" == *"/.claude/plans/"* ]]; then
     exit 0
   fi
@@ -49,7 +49,7 @@ fi
 
 # Validate provider_delegator agent invocations - block implementation agents
 if [[ "$TOOL_NAME" == "mcp__provider_delegator__invoke_agent" ]]; then
-  AGENT=$(echo "$INPUT" | jq -r '.tool_input.agent // empty')
+  AGENT=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('agent', ''))")
   CODEX_ALLOWED="scout|detective|architect|scribe|code-reviewer"
 
   if [[ ! "$AGENT" =~ ^($CODEX_ALLOWED)$ ]]; then
@@ -62,7 +62,7 @@ fi
 
 # Validate Bash commands for orchestrator
 if [[ "$TOOL_NAME" == "Bash" ]]; then
-  COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+  COMMAND=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('command', ''))")
   FIRST_WORD="${COMMAND%% *}"
 
   # ALLOW git commands (check second word for read vs write)

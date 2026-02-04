@@ -7,13 +7,14 @@
 #
 
 INPUT=$(cat)
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+TOOL_NAME=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_name', ''))")
+AGENT_TRANSCRIPT=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('agent_transcript_path', ''))")
 
 # Only check Task tool responses
 [[ "$TOOL_NAME" != "Task" ]] && exit 0
 
 # Get the tool response
-RESPONSE=$(echo "$INPUT" | jq -r '.tool_result // empty')
+RESPONSE=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_result', ''))")
 [[ -z "$RESPONSE" ]] && exit 0
 
 # Count lines and characters

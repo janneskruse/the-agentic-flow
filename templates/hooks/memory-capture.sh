@@ -7,13 +7,14 @@
 #
 
 INPUT=$(cat)
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+TOOL_NAPROMPT=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('prompt', ''))")
+TOOL_NAME=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_name', ''))")
 
 # Only process Bash tool
 [[ "$TOOL_NAME" != "Bash" ]] && exit 0
 
 # Extract the command that was executed
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+COMMAND=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('command', ''))")
 [[ -z "$COMMAND" ]] && exit 0
 
 # Only process bd comment commands containing knowledge markers
@@ -44,7 +45,7 @@ KEY="${TYPE}-${SLUG}"
 
 # Detect source agent from CWD or transcript context
 SOURCE="orchestrator"
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
+CWD=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('cwd', ''))")
 if echo "$CWD" | grep -q '\.worktrees/'; then
   # Inside a worktree = supervisor is running
   SOURCE="supervisor"
@@ -64,25 +65,17 @@ for tag in swift swiftui appkit menubar api security test database \
 done
 
 # Convert tags array to JSON
-TAGS_JSON=$(printf '%s\n' "${TAGS_ARRAY[@]}" | jq -R . | jq -s .)
+TAGS_JSON=$(python3 -c "import sys, json; print(json.dumps(sys.argv[1:]))" "${TAGS_ARRAY[@]}")
 
 # Get timestamp
 TS=$(date +%s)
 
 # Build JSON entry with proper escaping
-ENTRY=$(jq -cn \
-  --arg key "$KEY" \
-  --arg type "$TYPE" \
-  --arg content "$CONTENT" \
-  --arg source "$SOURCE" \
-  --argjson tags "$TAGS_JSON" \
-  --argjson ts "$TS" \
-  --arg bead "$BEAD_ID" \
-  '{key: $key, type: $type, content: $content, source: $source, tags: $tags, ts: $ts, bead: $bead}')
+ENTRY=$(python3 -c "import sys, json; print(json.dumps({'key': sys.argv[1], 'type': sys.argv[2], 'content': sys.argv[3], 'source': sys.argv[4], 'tags': json.loads(sys.argv[5]), 'ts': int(sys.argv[6]), 'bead': sys.argv[7]}))" "$KEY" "$TYPE" "$CONTENT" "$SOURCE" "$TAGS_JSON" "$TS" "$BEAD_ID")
 
 # Validate JSON
 [[ -z "$ENTRY" ]] && exit 0
-echo "$ENTRY" | jq . >/dev/null 2>&1 || exit 0
+echo "$ENTRY" | python3 -c "import sys, json; json.load(sys.stdin)" >/dev/null 2>&1 || exit 0
 
 # Resolve memory directory
 MEMORY_DIR="${CLAUDE_PROJECT_DIR:-.}/.beads/memory"

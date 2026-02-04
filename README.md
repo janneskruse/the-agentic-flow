@@ -16,7 +16,7 @@
 npx skills add AvivK5498/The-Claude-Protocol
 ```
 
-**macOS and Linux.**
+**macOS, Linux, and Windows.**
 
 <br>
 

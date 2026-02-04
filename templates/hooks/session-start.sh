@@ -54,7 +54,7 @@ if command -v gh &>/dev/null; then
   OPEN_PRS=$(gh pr list --author "@me" --state open --json number,title,headRefName 2>/dev/null)
   if [[ -n "$OPEN_PRS" && "$OPEN_PRS" != "[]" ]]; then
     echo "📋 You have open PRs:"
-    echo "$OPEN_PRS" | jq -r '.[] | "  #\(.number) \(.title) (\(.headRefName))"' 2>/dev/null
+    echo "$OPEN_PRS" | python3 -c "import sys, json; data = json.load(sys.stdin); [print('  #{} {} ({})'.format(i.get('number'), i.get('title'), i.get('headRefName'))) for i in data]" 2>/dev/null
     echo ""
   fi
 fi
@@ -110,10 +110,7 @@ if [[ -f "$KNOWLEDGE_FILE" && -s "$KNOWLEDGE_FILE" ]]; then
   echo "## Recent Knowledge ($TOTAL_ENTRIES entries)"
   echo ""
   # Show 5 most recent, deduplicated by key (latest wins)
-  tail -20 "$KNOWLEDGE_FILE" | jq -s '
-    group_by(.key) | map(max_by(.ts)) | sort_by(-.ts) | .[0:5] | .[] |
-    "  [\(.type | ascii_upcase | .[0:5])] \(.content | .[0:100])  (\(.source))"
-  ' -r 2>/dev/null
+  tail -20 "$KNOWLEDGE_FILE" | python3 -c "import sys, json; lines = sys.stdin.readlines(); data = [json.loads(l) for l in lines if l.strip()]; grouped = {}; [grouped.update({i.get('key'): i}) for i in data]; sorted_data = sorted(grouped.values(), key=lambda x: x.get('ts', 0), reverse=True); [print('  [{}] {}  ({})'.format(i.get('type', '').upper()[:5], i.get('content', '')[:100], i.get('source', ''))) for i in sorted_data[:5]]" 2>/dev/null
   echo ""
   echo "  Search: .beads/memory/recall.sh \"keyword\""
 fi

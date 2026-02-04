@@ -7,13 +7,13 @@
 #
 
 INPUT=$(cat)
-TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty')
+TOOL_NAME=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_name', ''))")
 
 # Only check Task tool
 [[ "$TOOL_NAME" != "Task" ]] && exit 0
 
 # Check if dispatching a supervisor
-SUBAGENT_TYPE=$(echo "$INPUT" | jq -r '.tool_input.subagent_type // empty')
+SUBAGENT_TYPE=$(echo "$INPUT" | python3 -c "import sys, json; print(json.load(sys.stdin).get('tool_input', {}).get('subagent_type', ''))")
 
 # Only inject for supervisors (not code-reviewer, architect, etc.)
 if [[ "$SUBAGENT_TYPE" == *"-supervisor"* ]]; then

@@ -1,6 +1,6 @@
 {
   "name": "@apapacho/the-agentic-flow",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Multi-agent orchestration for Claude Code with automatic task management",
   "author": "Jannes Kruse",
   "license": "MIT",
@@ -18,7 +18,8 @@
   ],
   "os": [
     "darwin",
-    "linux"
+    "linux",
+    "win32"
   ],
   "scripts": {
     "postinstall": "node scripts/postinstall.js"

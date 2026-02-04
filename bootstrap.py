@@ -120,7 +120,13 @@ def copy_and_replace(source: Path, dest: Path, replacements: dict) -> None:
     content = source.read_text()
     updated = replace_placeholders(content, replacements)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(updated)
+    
+    # Force LF line endings for shell scripts to ensure compatibility on Windows
+    if source.suffix == '.sh':
+        with open(dest, "w", newline="\n", encoding="utf-8") as f:
+            f.write(updated)
+    else:
+        dest.write_text(updated)
 
     # Preserve executable permissions for shell scripts
     if source.suffix == '.sh':
@@ -565,7 +571,12 @@ def copy_hooks(project_dir: Path, claude_only: bool = False) -> list:
             continue
 
         dest = hooks_dir / hook_file.name
-        shutil.copy2(hook_file, dest)
+        
+        # Ensure LF line endings for shell scripts
+        content = hook_file.read_text()
+        with open(dest, "w", newline="\n", encoding="utf-8") as f:
+            f.write(content)
+            
         dest.chmod(dest.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
         copied.append(hook_file.name)
         print(f"  - Copied {hook_file.name}")
