@@ -7,7 +7,7 @@
 **Claude Code plans great. Without structure, nothing survives past one session.**
 
 [![npm version](https://img.shields.io/npm/v/beads-orchestration?style=for-the-badge&logo=npm&logoColor=white&color=CB3837)](https://www.npmjs.com/package/beads-orchestration)
-[![GitHub stars](https://img.shields.io/github/stars/AvivK5498/The-Claude-Protocol?style=for-the-badge&logo=github&color=181717)](https://github.com/AvivK5498/The-Claude-Protocol)
+[![GitHub stars](https://img.shields.io/github/stars/AvivK5498/The-Claude-Protocol?style=for-the-badge&logo=github&color=181717)](https://github.com/janneskruse/the-agentic-flow)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 
 <br>
@@ -109,6 +109,30 @@ The skill walks you through setup, scans your tech stack, and creates supervisor
 - Node.js (for npx)
 - Python 3 (for bootstrap)
 - beads CLI (installed automatically)
+
+---
+
+## Antigravity Support
+
+This repo also supports Google's Antigravity agent.
+
+### Setup
+```bash
+npx beads-orchestration bootstrap --antigravity
+```
+
+This creates an `.agent/skills/beads-orchestration` directory containing the keys to the kingdom: a `SKILL.md` that teaches Antigravity how to use the `bd` CLI.
+
+### How It Works
+Antigravity automatically detects skills in the `.agent/skills` directory. You don't need to "install" it further. When you ask Antigravity to "check the tasks" or "create a task", it will find this skill, read the instructions, and know how to call `bd list` or `bd create`.
+
+### Coexistence with Claude
+**Yes, they play nicely together.**
+Both agents share the same source of truth: the `.beads` directory.
+- **Claude** uses `.claude/agents` and `.worktrees/`.
+- **Antigravity** uses `.agent/skills` and the same `.beads` database.
+- You can start a task in Claude, and Antigravity can see it via `bd list`.
+- You can create a task in Antigravity, and Claude can pick it up.
 
 ---
 

@@ -25,6 +25,7 @@ Commands:
 Examples:
   beads-orchestration install
   beads-orchestration bootstrap --project-dir /path/to/project --claude-only
+  beads-orchestration bootstrap --project-dir /path/to/project --antigravity
 
 After installing, use /create-beads-orchestration in Claude Code.
 `);

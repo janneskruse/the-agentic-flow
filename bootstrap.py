@@ -601,6 +601,34 @@ def copy_settings(project_dir: Path, claude_only: bool = False) -> None:
 
 
 # ============================================================================
+# ANTIGRAVITY (TEMPLATE COPYING)
+# ============================================================================
+
+def copy_antigravity_templates(project_dir: Path) -> None:
+    """Copy Antigravity skill templates."""
+    print("\n[Antigravity] Setting up Antigravity support...")
+
+    # Define source and destination
+    source = TEMPLATES_DIR / "antigravity" / "SKILL.md"
+    dest_dir = project_dir / ".agent" / "skills" / "beads-orchestration"
+    
+    # Check if source exists
+    if not source.exists():
+        print(f"  - Warning: Antigravity template not found at {source}")
+        return
+
+    # Create destination directory
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_file = dest_dir / "SKILL.md"
+
+    # Copy file
+    shutil.copy2(source, dest_file)
+    print(f"  - Created {dest_file}")
+    print("  DONE: Antigravity support configured")
+
+
+
+# ============================================================================
 # CLAUDE.MD
 # ============================================================================
 
@@ -780,11 +808,14 @@ def main():
                         help="Use Codex/Gemini for delegation (default: Claude-only)")
     parser.add_argument("--with-kanban-ui", action="store_true",
                         help="Use Beads Kanban UI API for worktree creation (with git fallback)")
+    parser.add_argument("--antigravity", action="store_true",
+                        help="Enable Antigravity support (creates .agent/ structure)")
     args = parser.parse_args()
 
     project_dir = Path(args.project_dir).resolve()
     claude_only = not args.external_providers  # Default is now claude-only
     with_kanban_ui = args.with_kanban_ui
+    antigravity = args.antigravity
 
     # Ensure project directory exists
     project_dir.mkdir(parents=True, exist_ok=True)
@@ -798,70 +829,61 @@ def main():
 
     mode_str = "CLAUDE-ONLY" if claude_only else "EXTERNAL PROVIDERS"
     worktree_str = "API + git fallback" if with_kanban_ui else "git only"
+    print(f"Bootstrap Mode: {mode_str}")
+    print(f"Worktree Mode:  {worktree_str}")
+    if antigravity:
+        print("Antigravity:    ENABLED")
+
+
+    # 1. Install beads
+    if not install_beads(project_dir, claude_only):
+        sys.exit(1)
+
+    # 2. Install frontend review tools (optional, won't block)
+    install_rams()
+    install_web_interface_guidelines()
+
+    # 3. Copy core agents
+    copy_agents(project_dir, project_name, claude_only, with_kanban_ui)
+
+    # 4. Copy skills
+    copy_skills(project_dir, claude_only)
+
+    # 5. Copy hooks
+    copy_hooks(project_dir, claude_only)
+
+    # 6. Configure settings
+    copy_settings(project_dir, claude_only)
+
+    # 7. Copy CLAUDE.md
+    copy_claude_md(project_dir, project_name, claude_only)
+
+    # 8. Setup memory
+    setup_memory(project_dir)
+
+    # 9. Setup .gitignore
+    setup_gitignore(project_dir, claude_only)
+
+    # 10. Setup MCP (only for external providers)
+    if not claude_only:
+        venv_python = setup_provider_delegator()
+        if not venv_python:
+            print("ERROR: Failed to setup provider-delegator")
+            sys.exit(1)
+        create_mcp_config(project_dir, venv_python)
+
+    # 11. Setup Antigravity (if requested)
+    if antigravity:
+        copy_antigravity_templates(project_dir)
+
+    # 12. Verify installation
+    if verify_installation(project_dir, claude_only):
+        print("\n\033[32mSUCCESS: Orchestration bootstrapped successfully!\033[0m")
+
     print(f"\nBootstrapping beads orchestration for: {project_name}")
     print(f"Directory: {project_dir}")
     print(f"Mode: {mode_str}")
     print(f"Worktrees: {worktree_str}")
-    print("=" * 60)
-
-    # Verify templates exist
-    if not TEMPLATES_DIR.exists():
-        print(f"\nERROR: Templates directory not found: {TEMPLATES_DIR}")
-        print("Make sure you cloned the full lean-orchestration repo")
-        sys.exit(1)
-
-    venv_python = None
-
-    # Step 0: Setup bundled provider-delegator (skip in claude-only mode)
-    if not claude_only:
-        venv_python = setup_provider_delegator()
-        if not venv_python:
-            print("\nERROR: Failed to setup provider-delegator. Aborting.")
-            sys.exit(1)
-
-        # Run remaining steps with provider support
-        if not install_beads(project_dir, claude_only=False):
-            print("\nERROR: Beads CLI is required. Aborting bootstrap.")
-            sys.exit(1)
-
-        # Install frontend review tools (optional, won't block)
-        install_rams()
-        install_web_interface_guidelines()
-
-        copy_agents(project_dir, project_name, claude_only=False, with_kanban_ui=with_kanban_ui)
-        copy_skills(project_dir, claude_only=False)
-        copy_hooks(project_dir, claude_only=False)
-        copy_settings(project_dir, claude_only=False)
-        copy_claude_md(project_dir, project_name, claude_only=False)
-        setup_memory(project_dir)
-        setup_gitignore(project_dir, claude_only=False)
-        create_mcp_config(project_dir, venv_python)
-    else:
-        # Claude-only mode: skip provider setup
-        print("\n[0/7] Skipping provider-delegator setup (claude-only mode)")
-
-        if not install_beads(project_dir, claude_only=True):
-            print("\nERROR: Beads CLI is required. Aborting bootstrap.")
-            sys.exit(1)
-
-        # Install frontend review tools (optional, won't block)
-        install_rams()
-        install_web_interface_guidelines()
-
-        copy_agents(project_dir, project_name, claude_only=True, with_kanban_ui=with_kanban_ui)
-        copy_skills(project_dir, claude_only=True)
-        copy_hooks(project_dir, claude_only=True)
-        copy_settings(project_dir, claude_only=True)
-        copy_claude_md(project_dir, project_name, claude_only=True)
-        setup_memory(project_dir)
-        setup_gitignore(project_dir, claude_only=True)
-
-    # Verify
-    if not verify_installation(project_dir, claude_only):
-        print("\nWARNING: Installation incomplete - check errors above")
-
-    print("\n" + "=" * 60)
-    print("BOOTSTRAP COMPLETE")
     print("=" * 60)
 
     if claude_only:
@@ -888,6 +910,11 @@ Next steps:
 
 NOTE: All agents (scout, detective, architect, etc.) run via Claude Task().
 No external providers (Codex/Gemini) are configured.
+""")
+        if antigravity:
+            print("""
+OPTIONAL: Antigravity Support
+An '.agent' directory has been created. If using Antigravity, it will automatically detect the 'beads-orchestration' skill.
 """)
     else:
         print(f"""
@@ -922,6 +949,8 @@ are delegated via provider_delegator MCP (Codex → Gemini fallback).
 Supervisors are sourced from https://github.com/ayush-that/sub-agents.directory
 with beads workflow injected.
 """)
+
+
 
 
 if __name__ == "__main__":

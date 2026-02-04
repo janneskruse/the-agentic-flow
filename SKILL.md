@@ -260,4 +260,4 @@ Design docs ensure consistency across epic children:
 
 ## More Information
 
-See the full documentation: https://github.com/AvivK5498/The-Claude-Protocol
+See the full documentation: https://github.com/janneskruse/the-agentic-flow
